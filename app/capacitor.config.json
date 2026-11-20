@@ -1,0 +1,19 @@
+{
+  "appId": "co.edu.unal.redemergencia",
+  "appName": "Red Emergencia LoRa",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "plugins": {
+    "BluetoothLe": {
+      "displayStrings": {
+        "scanning": "Buscando nodos LoRa…",
+        "cancel": "Cancelar",
+        "availableDevices": "Nodos disponibles",
+        "noDeviceFound": "No se encontró ningún nodo"
+      }
+    }
+  }
+}

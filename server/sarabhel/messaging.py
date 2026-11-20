@@ -6,13 +6,25 @@
 - app/send     : valida un mensaje del puesto de mando, lo guarda y lo entrega
                  al listener (mesh/tx/text) para transmitirlo por radio.
 """
+import re
 import threading
 
-from . import config, db
+from . import config, db, geo
 from .bus import Bus
 from .priority import CRITICO, classify
 
 log = config.setup_logging("mensajeria")
+
+# La app móvil agrega la ubicación del teléfono al final: "SOS Herido 📍5.07012,-75.51234"
+_COORDS = re.compile(r"📍\s*(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)\s*$")
+
+
+def coords_in_text(text: str) -> tuple[float, float] | None:
+    m = _COORDS.search(text)
+    if not m:
+        return None
+    lat, lon = float(m.group(1)), float(m.group(2))
+    return (lat, lon) if geo.valid_coords(lat, lon) else None
 
 
 class MessagingService:
@@ -31,7 +43,8 @@ class MessagingService:
         with self.lock, self.conn:
             db.touch_node(self.conn, node, ts)
             row = self.conn.execute("SELECT lat, lon, long_name FROM nodes WHERE node_id = ?", (node,)).fetchone()
-            lat, lon = (row["lat"], row["lon"]) if row else (None, None)
+            # Prioridad: coordenadas del teléfono en el texto > última posición conocida del nodo.
+            lat, lon = coords_in_text(text) or ((row["lat"], row["lon"]) if row else (None, None))
             if priority == CRITICO:
                 self.conn.execute("UPDATE nodes SET alert_ts = ? WHERE node_id = ?", (ts, node))
             cur = self.conn.execute(

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
@@ -52,6 +53,10 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Sarabhel — Puesto de mando", lifespan=lifespan)
+# La app móvil (Capacitor) carga desde su propio origen (http://localhost en Android)
+# y consulta esta API por la red local del puesto de mando.
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST"],
+                   allow_headers=["Content-Type"])
 
 
 def query(sql: str, params: tuple = ()) -> list[dict]:

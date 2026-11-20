@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Red Emergencia LoRa</string>
+    <string name="title_activity_main">Red Emergencia LoRa</string>
+    <string name="package_name">co.edu.unal.redemergencia</string>
+    <string name="custom_url_scheme">co.edu.unal.redemergencia</string>
+</resources>

@@ -14,6 +14,7 @@ El resultado buscado no es solo que los nodos se hablen: es que esa información
 
 | Carpeta | Contenido |
 |---|---|
+| [`app/`](app/) | **App móvil Android propia** con dos modos: *Campo* (Bluetooth al nodo LoRa, botón SOS con GPS, chat) y *Puesto de mando* (alertas, mapa y mensajes desde el servidor por Wi‑Fi local). Ver [app/README.md](app/README.md). |
 | [`server/`](server/) | Servidor local del puesto de mando: Mosquitto (MQTT) + servicios Python (listener, mensajería, localización GPS, dashboard con mapa) + SQLite, orquestado con Docker Compose. Ver [server/README.md](server/README.md). |
 | [`config/`](config/) | Configuración de referencia de los nodos Meshtastic (sin claves). |
 
@@ -47,11 +48,15 @@ docker compose up -d --build
       recorrido de cada nodo y envío de mensajes a la red.
 - [x] Configuración de referencia de los nodos sin claves y con el MQTT público apagado.
 - [x] Pruebas unitarias (prioridad, paquetes, geocercas).
+- [x] **App móvil Android** (React + Capacitor) con modo Campo (Bluetooth al nodo, SOS con GPS
+      del teléfono, mensajes rápidos, chat, mapa) y modo Puesto de mando (alertas, mapa, mensajes).
+      Probada en el navegador con radio simulada y con el servidor; **falta probar el Bluetooth con un nodo real**.
 
 ### Lo que falta
 
 **Necesita el dispositivo físico**
 - [ ] Probar el listener con el gateway Meshtastic real (USB y Wi‑Fi).
+- [ ] Probar la app móvil por Bluetooth con un nodo real e instalar el APK en varios teléfonos.
 - [ ] Aplicar `config/meshtastic.example.yaml` a los nodos.
 - [ ] Pruebas de alcance en Manizales (distancia, RSSI/SNR) y medición del consumo real de cada nodo.
 - [ ] Probar el despliegue con Docker en el servidor Ubuntu.

@@ -47,6 +47,13 @@ def test_zones():
     assert geo.find_zone(zones, 5.0689, -75.5174) is None      # centro de Manizales
 
 
+def test_coords_in_text():
+    from sarabhel.messaging import coords_in_text
+    assert coords_in_text("SOS Herido 📍5.07012,-75.51234") == (5.07012, -75.51234)
+    assert coords_in_text("SOS sin ubicación") is None
+    assert coords_in_text("📍0.0,0.0") is None
+
+
 def test_valid_coords():
     assert geo.valid_coords(5.0, -75.0)
     assert not geo.valid_coords(0, 0)
