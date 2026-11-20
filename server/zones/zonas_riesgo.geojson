@@ -1,0 +1,33 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Zona de ejemplo — ladera Aranjuez (reemplazar con datos oficiales)",
+        "fuente": "Polígono ilustrativo para la demo; usar cartografía de amenaza del POT / UGR Manizales"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-75.5040, 5.0560], [-75.4930, 5.0560], [-75.4930, 5.0630],
+          [-75.5040, 5.0630], [-75.5040, 5.0560]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Zona de ejemplo — cañada Chipre (reemplazar con datos oficiales)",
+        "fuente": "Polígono ilustrativo para la demo"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-75.5300, 5.0720], [-75.5230, 5.0720], [-75.5230, 5.0775],
+          [-75.5300, 5.0775], [-75.5300, 5.0720]
+        ]]
+      }
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+# Sistema de mensajería de emergencia — Equipo Sarabhel
+# Stack liviano para un portátil con batería: Mosquitto + servicios Python + SQLite.
+#
+#   docker compose up -d --build                     # modo simulado (sin radio)
+#   MESH_CONNECTION=tcp MESH_TCP_HOST=192.168.4.1 docker compose up -d
+#   docker compose -f docker-compose.yml -f docker-compose.serial.yml up -d   # gateway por USB (Linux)
+
+name: sarabhel
+
+x-env: &env
+  MQTT_HOST: mosquitto
+  MQTT_PORT: "1883"
+  DB_PATH: /data/sarabhel.db
+  TZ: America/Bogota
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+x-app: &app
+  build: .
+  image: sarabhel:latest
+  restart: unless-stopped
+  volumes:
+    - datos:/data
+  depends_on:
+    mosquitto:
+      condition: service_healthy
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0.20
+    restart: unless-stopped
+    ports:
+      # Solo accesible desde el propio servidor (el listener nativo de Windows lo usa).
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/broker/uptime", "-C", "1", "-W", "3"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  listener:
+    <<: *app
+    command: ["python", "-m", "sarabhel.listener"]
+    environment:
+      <<: *env
+      MESH_CONNECTION: ${MESH_CONNECTION:-sim}
+      MESH_TCP_HOST: ${MESH_TCP_HOST:-}
+      MESH_CHANNEL_INDEX: ${MESH_CHANNEL_INDEX:-0}
+
+  mensajeria:
+    <<: *app
+    command: ["python", "-m", "sarabhel.messaging"]
+    environment: *env
+
+  localizacion:
+    <<: *app
+    command: ["python", "-m", "sarabhel.location"]
+    environment: *env
+
+  dashboard:
+    <<: *app
+    command: ["python", "-m", "sarabhel.dashboard"]
+    environment:
+      <<: *env
+      TILE_URL: ${TILE_URL:-}
+    ports:
+      # Visible en la red local del puesto de mando (celulares / otros PC).
+      - "8080:8080"
+
+volumes:
+  datos:
+  mosquitto-data:

@@ -1,0 +1,14 @@
+# Configuración real del nodo: contiene la clave privada. Usar config/meshtastic.example.yaml
+config.yaml
+
+# Documentos de trabajo (propuestas del concurso) y archivos temporales de Office
+*.docx
+~$*
+
+# Python / entorno local
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+data/

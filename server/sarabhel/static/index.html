@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Puesto de mando · Sarabhel</title>
+  <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>Puesto de mando <span>· red de emergencia LoRa</span></h1>
+    <div class="status"><span id="conn-dot" class="dot"></span><span id="conn-text">Conectando…</span></div>
+  </header>
+
+  <main>
+    <div id="map"></div>
+
+    <aside>
+      <section>
+        <h2>Alertas <span id="alert-count" class="count">0</span></h2>
+        <ul id="alerts" class="list"></ul>
+        <p class="empty" id="alerts-empty">Sin alertas críticas.</p>
+      </section>
+
+      <section>
+        <h2>Nodos <span id="node-count" class="count">0</span></h2>
+        <ul id="nodes" class="list"></ul>
+      </section>
+
+      <section class="grow">
+        <h2>Mensajes</h2>
+        <ul id="messages" class="list"></ul>
+      </section>
+
+      <form id="send-form">
+        <div class="row">
+          <select id="send-to" aria-label="Destinatario"><option value="">Todos los nodos</option></select>
+          <span id="send-bytes" class="muted">0 / 200</span>
+        </div>
+        <div class="row">
+          <input id="send-text" type="text" autocomplete="off" placeholder="Mensaje a la red…" aria-label="Mensaje">
+          <button type="submit">Enviar</button>
+        </div>
+        <p id="send-error" class="error" hidden></p>
+      </form>
+    </aside>
+  </main>
+
+  <script src="/static/vendor/leaflet/leaflet.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
