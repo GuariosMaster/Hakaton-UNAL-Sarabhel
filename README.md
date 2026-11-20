@@ -27,9 +27,46 @@ docker compose up -d --build
 # abrir http://localhost:8080
 ```
 
-## Estado
+## Estado del proyecto
 
-- [x] Servidor local con mensajería, prioridad de alertas y localización GPS (probado en modo simulado)
-- [ ] Prueba con gateway Meshtastic real
-- [ ] Mapa offline de Manizales y zonas de riesgo oficiales
-- [ ] Dimensionamiento del kit de energía
+> **Nota (noviembre 2026):** el software del servidor está funcionando y probado en
+> **modo simulado**. Aún no tenemos el dispositivo físico (nodos y gateway LoRa), por lo
+> que nada se ha probado todavía con radio real.
+
+### Lo que ya está hecho
+
+- [x] **Arquitectura liviana**: Docker Compose + Mosquitto (MQTT) + servicios Python + SQLite,
+      en lugar de Kubernetes, para ahorrar RAM, CPU y batería en el puesto de mando.
+- [x] **Listener** que se conecta al gateway Meshtastic por USB/serie o Wi‑Fi (TCP), con un
+      **modo simulado** de 5 nodos ficticios en Manizales para demos sin hardware.
+- [x] **Servicio de mensajería**: guarda el historial y clasifica cada mensaje como
+      crítico, moderado o informativo por palabras clave (SOS, herido, agua…).
+- [x] **Servicio de localización GPS**: última posición e historial de cada nodo, batería,
+      y alerta cuando un nodo entra en una zona de riesgo (geocercas).
+- [x] **Dashboard web** del puesto de mando: mapa en vivo, alertas, lista de nodos,
+      recorrido de cada nodo y envío de mensajes a la red.
+- [x] Configuración de referencia de los nodos sin claves y con el MQTT público apagado.
+- [x] Pruebas unitarias (prioridad, paquetes, geocercas).
+
+### Lo que falta
+
+**Necesita el dispositivo físico**
+- [ ] Probar el listener con el gateway Meshtastic real (USB y Wi‑Fi).
+- [ ] Aplicar `config/meshtastic.example.yaml` a los nodos.
+- [ ] Pruebas de alcance en Manizales (distancia, RSSI/SNR) y medición del consumo real de cada nodo.
+- [ ] Probar el despliegue con Docker en el servidor Ubuntu.
+
+**Se puede avanzar sin hardware**
+- [ ] **Gestión de alertas**: marcar una alerta como atendida, asignar equipo de rescate y agregar notas.
+- [ ] **Kit de energía**: dimensionar panel, batería y autonomía (nodos y servidor) y mostrarlo en el dashboard.
+- [ ] **Escenario de demo guionizado** (un "sismo" simulado que siempre se desarrolla igual).
+- [ ] **Confirmación de entrega y buzón** para nodos desconectados.
+- [ ] **Mapa offline** de Manizales (mosaicos servidos en local; hoy el mapa usa internet).
+- [ ] **Zonas de riesgo oficiales** (POT / Corpocaldas); las actuales son polígonos de ejemplo.
+- [ ] Estadísticas y exportación de reportes (CSV).
+- [ ] Contraseña de acceso al dashboard.
+
+**Documentación y compras**
+- [ ] Unificar las propuestas técnicas en un solo documento alineado con lo construido.
+- [ ] Definir y comprar hardware: placas con GPS (p. ej. LilyGO T‑Beam o Heltec Wireless Tracker),
+      antenas de 915 MHz, panel solar y baterías 18650.
