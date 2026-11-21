@@ -29,9 +29,12 @@ docker compose up -d --build
 
 ## Estado del proyecto
 
-> **Nota (noviembre 2026):** el software del servidor está funcionando y probado en
-> **modo simulado**. Aún no tenemos el dispositivo físico (nodos y gateway LoRa), por lo
-> que nada se ha probado todavía con radio real.
+> **Nota (noviembre 2026):** el gateway RAK4631 ya está conectado por USB en
+> `/dev/ttyACM0` y responde con `meshtastic --port /dev/ttyACM0 --info`. El servidor en
+> [`server/`](server/) está unificado para usar ese gateway y mostrar sus nodos reales;
+> el modo simulado sigue disponible para demos y aparece marcado como **DEMO** en la
+> interfaz. Falta validar la malla con varios nodos en campo: por ahora el gateway solo
+> conoce un nodo, sin posición GPS.
 
 ### Lo que ya está hecho
 
@@ -50,8 +53,9 @@ docker compose up -d --build
 
 ### Lo que falta
 
-**Necesita el dispositivo físico**
-- [ ] Probar el listener con el gateway Meshtastic real (USB y Wi‑Fi).
+**Con el gateway conectado**
+- [x] Probar el listener con el gateway Meshtastic real por USB (`/dev/ttyACM0`).
+- [ ] Probar el gateway por Wi‑Fi (TCP) y la malla con más de un nodo.
 - [ ] Aplicar `config/meshtastic.example.yaml` a los nodos.
 - [ ] Pruebas de alcance en Manizales (distancia, RSSI/SNR) y medición del consumo real de cada nodo.
 - [ ] Probar el despliegue con Docker en el servidor Ubuntu.
@@ -61,7 +65,8 @@ docker compose up -d --build
 - [ ] **Kit de energía**: dimensionar panel, batería y autonomía (nodos y servidor) y mostrarlo en el dashboard.
 - [ ] **Escenario de demo guionizado** (un "sismo" simulado que siempre se desarrolla igual).
 - [ ] **Confirmación de entrega y buzón** para nodos desconectados.
-- [ ] **Mapa offline** de Manizales (mosaicos servidos en local; hoy el mapa usa internet).
+- [ ] **Mosaicos offline** de Manizales: Leaflet ya se sirve desde `server/sarabhel/static/vendor/`;
+      falta generar y servir los mosaicos por `TILE_URL` (hoy usa OpenStreetMap en línea).
 - [ ] **Zonas de riesgo oficiales** (POT / Corpocaldas); las actuales son polígonos de ejemplo.
 - [ ] Estadísticas y exportación de reportes (CSV).
 - [ ] Contraseña de acceso al dashboard.

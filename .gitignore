@@ -12,3 +12,8 @@ __pycache__/
 .pytest_cache/
 .env
 data/
+
+# ESP-IDF build artifacts (sdkconfig is intentionally tracked)
+firmware/gateway/build/
+firmware/gateway/sdkconfig.old
+firmware/gateway/managed_components/

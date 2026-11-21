@@ -1,15 +1,16 @@
 """Listener: puente entre el Gateway Meshtastic (serie/USB, TCP o simulado) y el broker.
 
-Radio -> broker: traduce cada paquete a JSON y lo publica en mesh/rx/<tipo>.
-Broker -> radio: escucha mesh/tx/text y lo transmite por LoRa.
+Radio -> broker: traduce cada paquete a JSON y lo publica en lora/gateway/rx/<tipo>.
+Broker -> radio: escucha lora/gateway/tx y lo transmite por LoRa.
 """
+from __future__ import annotations
+
 import queue
 import threading
 import time
 from typing import Any
 
 from . import config
-from .bus import Bus
 
 log = config.setup_logging("listener")
 
@@ -42,6 +43,7 @@ def packet_to_events(packet: dict[str, Any]) -> list[tuple[str, dict]]:
         if lat is None or lon is None:
             return []
         return [(config.RX_POSITION, {
+            "packet_id": packet.get("id"),
             "from": node,
             "lat": lat,
             "lon": lon,
@@ -54,6 +56,7 @@ def packet_to_events(packet: dict[str, Any]) -> list[tuple[str, dict]]:
     if portnum == "NODEINFO_APP":
         user = decoded.get("user") or {}
         return [(config.RX_NODEINFO, {
+            "packet_id": packet.get("id"),
             "from": node,
             "long_name": user.get("longName"),
             "short_name": user.get("shortName"),
@@ -65,6 +68,7 @@ def packet_to_events(packet: dict[str, Any]) -> list[tuple[str, dict]]:
         if not metrics:
             return []
         return [(config.RX_TELEMETRY, {
+            "packet_id": packet.get("id"),
             "from": node,
             "battery": metrics.get("batteryLevel"),
             "voltage": metrics.get("voltage"),
@@ -89,6 +93,17 @@ def nodedb_to_events(nodes: dict[str, dict]) -> list[tuple[str, dict]]:
             events.append((config.RX_POSITION, {
                 "from": node_id, "lat": pos["latitude"], "lon": pos["longitude"],
                 "alt": pos.get("altitude"), "ts": int(pos.get("time") or ts),
+            }))
+        # La tabla de nodos del gateway ya trae batería/voltaje: publicarlos al
+        # arrancar evita que el dashboard muestre nodos reales sin telemetría
+        # hasta que llegue el siguiente broadcast (puede tardar 15 min).
+        metrics = info.get("deviceMetrics") or {}
+        if metrics.get("batteryLevel") is not None or metrics.get("voltage") is not None:
+            events.append((config.RX_TELEMETRY, {
+                "from": node_id,
+                "battery": metrics.get("batteryLevel"),
+                "voltage": metrics.get("voltage"),
+                "ts": ts,
             }))
     return events
 
@@ -157,6 +172,8 @@ class MeshLink:
 
 
 def main() -> None:
+    from .bus import Bus  # import diferido: permite importar el módulo sin paho en las pruebas
+
     bus = Bus("listener")
     if config.MESH_CONNECTION == "sim":
         from .simulator import Simulator

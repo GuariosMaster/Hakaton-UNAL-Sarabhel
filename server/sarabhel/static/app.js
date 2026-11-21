@@ -259,6 +259,11 @@ function connectStream() {
 async function main() {
   const cfg = await api("/api/config");
   state.maxBytes = cfg.max_text_bytes;
+  if (cfg.demo) {
+    const banner = $("demo-banner");
+    banner.hidden = false;
+    banner.textContent = `DEMO — datos simulados (modo ${cfg.mesh_connection}); no son nodos reales`;
+  }
   initMap(cfg);
   initSendForm(cfg.max_text_bytes);
   connectStream();  // antes de cargar historial para no perder eventos

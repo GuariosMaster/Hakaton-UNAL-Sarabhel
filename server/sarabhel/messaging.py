@@ -1,10 +1,10 @@
 """Servicio de Mensajería.
 
-- mesh/rx/text : clasifica prioridad, adjunta la última posición conocida del
+- lora/gateway/rx/text : clasifica prioridad, adjunta la última posición conocida del
                  remitente, guarda en SQLite y emite events/msg (y events/alert
                  si es crítico).
 - app/send     : valida un mensaje del puesto de mando, lo guarda y lo entrega
-                 al listener (mesh/tx/text) para transmitirlo por radio.
+                 al listener (lora/gateway/tx) para transmitirlo por radio.
 """
 import threading
 
@@ -29,6 +29,9 @@ class MessagingService:
         ts = int(p.get("ts") or db.now())
         priority = classify(text)
         with self.lock, self.conn:
+            if db.is_duplicate_packet(self.conn, p.get("packet_id")):
+                log.debug("Paquete %s ya guardado; descartado", p.get("packet_id"))
+                return
             db.touch_node(self.conn, node, ts)
             row = self.conn.execute("SELECT lat, lon, long_name FROM nodes WHERE node_id = ?", (node,)).fetchone()
             lat, lon = (row["lat"], row["lon"]) if row else (None, None)

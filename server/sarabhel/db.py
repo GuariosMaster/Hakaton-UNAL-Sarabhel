@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS messages (
     ts          INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_messages_ts ON messages (ts);
+CREATE INDEX IF NOT EXISTS idx_messages_packet ON messages (direction, packet_id);
 
 CREATE TABLE IF NOT EXISTS positions (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,6 +64,17 @@ def connect() -> sqlite3.Connection:
 
 def now() -> int:
     return int(time.time())
+
+
+def is_duplicate_packet(conn: sqlite3.Connection, packet_id: int | None) -> bool:
+    """Detecta reintentos de la malla por el id real del paquete Meshtastic."""
+    if packet_id is None:
+        return False
+    row = conn.execute(
+        "SELECT 1 FROM messages WHERE direction = 'in' AND packet_id = ? LIMIT 1",
+        (packet_id,),
+    ).fetchone()
+    return row is not None
 
 
 def touch_node(conn: sqlite3.Connection, node_id: str, ts: int) -> None:

@@ -1,10 +1,10 @@
 """Servicio de Localización (GPS).
 
-- mesh/rx/position  : guarda historial y última posición, revisa geocercas de
+- lora/gateway/rx/position  : guarda historial y última posición, revisa geocercas de
                       zonas de riesgo y emite events/position (+ events/alert al
                       entrar en una zona).
-- mesh/rx/nodeinfo  : nombre del nodo.
-- mesh/rx/telemetry : batería / voltaje.
+- lora/gateway/rx/nodeinfo  : nombre del nodo.
+- lora/gateway/rx/telemetry : batería / voltaje.
 """
 import threading
 

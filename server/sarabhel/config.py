@@ -33,20 +33,35 @@ MAP_CENTER = (5.0689, -75.5174)  # Manizales
 MAX_TEXT_BYTES = 200
 
 # --- Temas MQTT -------------------------------------------------------------
+# Contrato canónico acordado para el tráfico de radio.
 # Radio -> servidor (publica el listener)
-RX_TEXT = "mesh/rx/text"
-RX_POSITION = "mesh/rx/position"
-RX_NODEINFO = "mesh/rx/nodeinfo"
-RX_TELEMETRY = "mesh/rx/telemetry"
+RX_TEXT = "lora/gateway/rx/text"
+RX_POSITION = "lora/gateway/rx/position"
+RX_NODEINFO = "lora/gateway/rx/nodeinfo"
+RX_TELEMETRY = "lora/gateway/rx/telemetry"
 # Servidor -> radio (escucha el listener)
-TX_TEXT = "mesh/tx/text"
+TX_TEXT = "lora/gateway/tx"
 # Petición de envío desde el dashboard (la procesa el servicio de mensajería)
 APP_SEND = "app/send"
-# Eventos ya procesados y guardados (los consume el dashboard)
+# Eventos ya procesados y guardados (los consume el dashboard).
+# lora/nodes es el tema canónico del estado de nodos; los demás son internos.
 EV_MESSAGE = "events/msg"
 EV_POSITION = "events/position"
-EV_NODE = "events/node"
+EV_NODE = "lora/nodes"
 EV_ALERT = "events/alert"
+
+# El tipo de evento SSE no debe depender del prefijo del tema MQTT.
+SSE_KINDS = {
+    EV_MESSAGE: "msg",
+    EV_POSITION: "position",
+    EV_NODE: "node",
+    EV_ALERT: "alert",
+}
+
+
+def is_demo_mode(mode: str | None = None) -> bool:
+    """True cuando los datos provienen del simulador, no del gateway real."""
+    return (mode if mode is not None else MESH_CONNECTION) == "sim"
 
 
 def setup_logging(service: str) -> logging.Logger:

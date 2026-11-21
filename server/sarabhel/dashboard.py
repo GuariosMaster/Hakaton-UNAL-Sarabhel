@@ -27,7 +27,8 @@ class Hub:
 
     def forward(self, topic: str, payload: dict) -> None:  # hilo de paho
         if self.loop is not None:
-            self.loop.call_soon_threadsafe(self._fanout, topic.split("/", 1)[1], payload)
+            kind = config.SSE_KINDS.get(topic, topic.split("/", 1)[-1])
+            self.loop.call_soon_threadsafe(self._fanout, kind, payload)
 
     def _fanout(self, kind: str, payload: dict) -> None:
         for q in list(self.clients):
@@ -46,6 +47,7 @@ async def lifespan(_app: FastAPI):
     db.connect().close()  # crea el esquema si el dashboard arranca primero
     hub.loop = asyncio.get_running_loop()
     bus.subscribe("events/#", hub.forward)
+    bus.subscribe(config.EV_NODE, hub.forward)
     await asyncio.to_thread(bus.start)
     yield
     bus.stop()
@@ -80,7 +82,10 @@ class SendRequest(BaseModel):
 
 @app.get("/api/config")
 def get_config():
-    return {"tile_url": config.TILE_URL, "center": config.MAP_CENTER, "max_text_bytes": config.MAX_TEXT_BYTES}
+    return {"tile_url": config.TILE_URL, "center": config.MAP_CENTER,
+            "max_text_bytes": config.MAX_TEXT_BYTES,
+            "mesh_connection": config.MESH_CONNECTION,
+            "demo": config.is_demo_mode()}
 
 
 @app.get("/api/nodes")
