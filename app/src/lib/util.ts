@@ -13,9 +13,9 @@ export function ago(ts?: number | null): string {
 
 export const utf8Bytes = (t: string) => new TextEncoder().encode(t).length;
 
-// Un paquete RHMesh sobre RFM69 lleva como máximo 54 bytes; la trama "MSG|12.4|18.1|100|"
-// ocupa 18, quedan 36 para el texto (igual que MAX_TEXTO en el firmware y el servidor).
-export const MAX_TEXT_BYTES = 36;
+// Igual que MAX_TEXTO_LARGO del firmware y MAX_TEXT_BYTES del servidor. Hasta 36 bytes viaja en
+// un solo paquete de radio; más largo, el nodo lo parte en hasta 5 paquetes.
+export const MAX_TEXT_BYTES = 120;
 
 export interface Fix {
   lat: number;

@@ -25,6 +25,11 @@ El resultado buscado no es solo que los nodos se hablen: es que esa información
 - **Con internet:** https://guariosmaster.github.io/Lora-Hakaton/ — el APK se compila automáticamente con GitHub Actions en cada cambio de `app/` y queda en la release [`apk-latest`](https://github.com/GuariosMaster/Lora-Hakaton/releases/tag/apk-latest).
 - **Sin internet, en el puesto de mando:** conectarse al Wi‑Fi del portátil y abrir `http://192.168.137.1:8080/descargar` (copiar antes el APK a `server/descargas/`).
 
+## Demo para la presentación
+
+`.\iniciar.ps1 -Radio escenario` reproduce un sismo guionizado (mensajes, SOS largo, zona de riesgo,
+batería baja) que siempre se desarrolla igual. Guion con lo que hay que decir en cada momento: [DEMO.md](DEMO.md).
+
 ## Probar la app entre teléfonos
 
 Sin hardware RF hay dos formas, ambas en [PRUEBAS.md](PRUEBAS.md):
@@ -54,6 +59,12 @@ docker compose up -d --build
 - [x] **Servicio de localización GPS**: última posición e historial de cada nodo, batería, y alerta cuando un nodo entra en una zona de riesgo (geocercas).
 - [x] **Telemetría de energía**: voltaje de batería, voltaje del panel y % de carga de cada nodo (vienen en cada trama), panel **Energía** en el dashboard y en la app, y alerta de **batería baja**.
 - [x] **Dashboard web** del puesto de mando: mapa en vivo, alertas, energía, lista de nodos, recorrido de cada nodo y envío de mensajes a la red.
+- [x] **Gestión de alertas**: cada alerta (SOS, zona de riesgo, batería baja) se guarda y se puede marcar como *en atención* / *atendida*, asignar un equipo de rescate y agregar notas, desde el dashboard o la app; los cambios se ven en vivo en todos los equipos.
+- [x] **Mensajes de hasta 120 caracteres**: el firmware parte los mensajes largos en tramas `MSGP` y los reensambla al llegar.
+- [x] **Kit de energía dimensionado** ([ENERGIA.md](ENERGIA.md)) y **autonomía estimada sin sol** de cada nodo en el dashboard y la app.
+- [x] **Escenario de demo guionizado** y guion de presentación ([DEMO.md](DEMO.md)).
+- [x] **Exportar CSV** de mensajes y alertas para entregar a las autoridades.
+- [x] **APK con firma fija**: las actualizaciones se instalan encima, sin desinstalar.
 - [x] **Firmware ESP32** (PlatformIO): gateway ESP32-S3 (USB JSON ↔ radio) y nodo de albergue (portal Wi‑Fi cautivo, API para la app, medición de batería/panel, telemetría cada 5 min, malla RHMesh, AES-128). Compila; falta probarlo en hardware.
 - [x] **Nodo de albergue simulado** en Python con la misma API y portal que el firmware, para probar la app y el portal sin hardware.
 - [x] Configuración de referencia de la red FSK (sin claves expuestas).
@@ -70,13 +81,11 @@ docker compose up -d --build
 - [ ] Probar el despliegue con Docker en el servidor Ubuntu del PMU.
 
 **Se puede avanzar sin hardware**
-- [ ] **Gestión de alertas**: marcar una alerta como atendida, asignar equipo de rescate y agregar notas.
-- [ ] **Kit de energía**: dimensionar panel, batería y autonomía de nodos y servidor (la telemetría ya se muestra en el dashboard).
-- [ ] **Escenario de demo guionizado** (un "sismo" simulado que siempre se desarrolla igual).
-- [ ] **Confirmación de entrega y buzón** para nodos desconectados.
+- [ ] **Medir el consumo real** de los nodos y ajustar el dimensionamiento de [ENERGIA.md](ENERGIA.md).
+- [ ] **Buzón** para nodos desconectados (reintentar mensajes cuando el nodo vuelva a tener ruta).
 - [ ] **Mapa offline** de Manizales (mosaicos servidos en local; hoy el mapa usa internet).
 - [ ] **Zonas de riesgo oficiales** (POT / Corpocaldas); las actuales son polígonos de ejemplo.
-- [ ] Estadísticas y exportación de reportes (CSV).
+- [ ] Estadísticas en el dashboard (mensajes por prioridad, tiempos de atención).
 - [ ] Contraseña de acceso al dashboard.
 
 **Documentación**

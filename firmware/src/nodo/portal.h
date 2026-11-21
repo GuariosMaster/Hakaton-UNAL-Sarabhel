@@ -33,13 +33,13 @@ li b{font-size:13px;color:var(--m);display:block}
 <button onclick="enviar('Evacuando')">🏃 Evacuando</button><button onclick="enviar('Estoy bien')">✅ Estoy bien</button>
 </div>
 <textarea id="txt" rows="2" placeholder="Escribe un reporte corto…" oninput="contar()"></textarea>
-<div class="row"><small id="cnt">0/36</small><button class="env" onclick="enviar(document.getElementById('txt').value)">Enviar</button></div>
+<div class="row"><small id="cnt">0/120</small><button class="env" onclick="enviar(document.getElementById('txt').value)">Enviar</button></div>
 <p id="estado"></p>
 </div>
 <div class="card"><b>Mensajes</b><ul id="lista"></ul></div>
 </main>
 <script>
-var MAX=36,ult=0,enc=new TextEncoder();
+var MAX=120,ult=0,enc=new TextEncoder();
 function $(i){return document.getElementById(i)}
 function contar(){var n=enc.encode($('txt').value.trim()).length;$('cnt').textContent=n+'/'+MAX;$('cnt').className=n>MAX?'err':''}
 function estado(t,ok){$('estado').textContent=t;$('estado').className=ok?'ok':'err'}

@@ -14,7 +14,7 @@ export function FieldMapScreen() {
       lat: n.lat!,
       lon: n.lon!,
       color: n.lastHeard && now() - n.lastHeard < STALE_S ? "#2f9e44" : "#9aa0a6",
-      label: n.shortName ?? n.id,
+      label: n.shortName ?? n.longName?.slice(0, 18) ?? n.id,
       popup: [n.longName ?? n.id, `Escuchado ${ago(n.lastHeard)}`, n.battery != null ? `Batería ${n.battery}%` : ""]
         .filter(Boolean),
     }));

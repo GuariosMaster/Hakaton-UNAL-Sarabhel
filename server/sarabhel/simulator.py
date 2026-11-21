@@ -21,7 +21,7 @@ log = logging.getLogger("listener.sim")
 NODES = [
     # dirección RHMesh, nombre, lat, lon
     (2, "Albergue Coliseo", 5.0640, -75.4990),
-    (3, "Albergue Chipre", 5.0745, -75.5260),
+    (3, "Albergue Chipre", 5.0800, -75.5260),
     (4, "Ladera Aranjuez", 5.0590, -75.4985),
     (5, "Brigada La Enea", 5.0315, -75.4630),
     (6, "Puesto San José", 5.0700, -75.5195),
@@ -77,6 +77,56 @@ class Simulator:
 
     def send(self, text: str, to: str | None) -> None:
         log.info("[sim] transmitido por radio FSK a %s: %s", to or "todos", text)
+
+
+# --- Escenario de demo guionizado ------------------------------------------------
+# Un sismo que siempre se desarrolla igual, para presentar el sistema (ver DEMO.md).
+# (segundo, nodo, tipo, datos)
+ESCENARIO = [
+    (3, 2, "MSG", {"msg": "Sismo fuerte. Albergue Coliseo abierto"}),
+    (12, 4, "MSG", {"msg": "Derrumbe en la ladera, via cerrada"}),
+    (20, 4, "POS", {"lat": 5.0596, "lon": -75.4983}),  # entra a la zona de riesgo de ejemplo
+    (30, 5, "MSG", {"msg": "SOS 3 personas atrapadas en vivienda colapsada en la calle 48, una herida"}),
+    (42, 3, "MSG", {"msg": "Necesitamos agua para 120 personas"}),
+    (55, 6, "TEL", {"carga": 18}),  # el kit de energía de San José se está agotando
+    (68, 2, "MSG", {"msg": "Herido con fractura, necesito apoyo"}),
+    (85, 5, "MSG", {"msg": "Rescatadas 2 personas, falta 1"}),
+    (100, 3, "MSG", {"msg": "Llego agua, gracias"}),
+    (115, 2, "MSG", {"msg": "Todos bien en punto de encuentro"}),
+]
+
+
+class Escenario(Simulator):
+    """Reproduce ESCENARIO y después sigue con la simulación aleatoria."""
+
+    def __init__(self, bus: Bus):
+        super().__init__(bus)
+        for addr, st in self.state.items():  # punto de partida conocido
+            st["carga"] = {6: 24}.get(addr, 80)
+        self.state[4]["lat"], self.state[4]["lon"] = 5.0655, -75.4985  # Aranjuez arranca fuera de la zona
+
+    def run(self) -> None:
+        log.info("Escenario de demo: %d eventos en %d s", len(ESCENARIO), ESCENARIO[-1][0])
+        for addr, st in self.state.items():
+            self._emit({"nodo": addr, "tipo": "INFO", "nombre": st["name"]})
+            self._emit({"nodo": addr, "tipo": "POS", **self._energy(addr), "lat": st["lat"], "lon": st["lon"]})
+        inicio = time.monotonic()
+        for segundo, addr, tipo, datos in ESCENARIO:
+            time.sleep(max(0.0, inicio + segundo - time.monotonic()))
+            st = self.state[addr]
+            if "carga" in datos:
+                st["carga"] = datos["carga"]
+            if tipo == "POS":
+                st["lat"], st["lon"] = datos["lat"], datos["lon"]
+            frame = {"nodo": addr, "tipo": tipo, **self._energy(addr)}
+            if tipo == "POS":
+                frame.update(lat=st["lat"], lon=st["lon"])
+            elif tipo == "MSG":
+                frame["msg"] = datos["msg"]
+            log.info("[escenario %3ds] %s %s %s", segundo, st["name"], tipo, datos.get("msg", ""))
+            self._emit(frame)
+        log.info("Escenario terminado; continúa la simulación aleatoria")
+        super().run()
 
     def _energy(self, addr: int) -> dict:
         st = self.state[addr]

@@ -50,8 +50,12 @@ server\.venv\Scripts\python firmware\herramientas\nodo_simulado.py --nodo 7 --no
 
 ## Límites conocidos
 
-- **Texto de 36 bytes por mensaje**: un paquete RHMesh sobre RFM69 lleva 54 bytes y la trama
-  ocupa 18. Para mensajes más largos habría que fragmentar.
+- **Mensajes de hasta 120 bytes**: un paquete RHMesh sobre RFM69 lleva 54 bytes. Hasta 36 bytes de
+  texto viaja en una trama `MSG`; más largo, se parte en hasta 5 tramas `MSGP|…|id.k.n:texto` que el
+  gateway y los nodos reensamblan (si se pierde una parte, el mensaje no se entrega y la app lo
+  marca como fallido).
+- **Ojo con RadioHead**: `RH_MESH_MAX_MESSAGE_LEN` vale 249 (se calcula con un máximo genérico de
+  255), no el límite real del RFM69. El firmware usa su propia constante `MAX_PAQUETE` = 54.
 - **RHMesh no reenvía difusiones**: para “todos”, el gateway envía el mensaje a cada nodo que conoce.
 - **Alcance**: FSK a 9,6 kbps tiene menos sensibilidad que LoRa; prever repetidores en las laderas y
   medir el alcance real con el hardware.

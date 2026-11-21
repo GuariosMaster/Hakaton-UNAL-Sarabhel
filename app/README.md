@@ -45,8 +45,19 @@ android/                 proyecto Android generado por Capacitor
 
 ## Límite de texto
 
-Cada mensaje admite **36 bytes**: un paquete RHMesh sobre RFM69 lleva 54 bytes y la trama
-`MSG|12.4|18.1|100|` ocupa 18. La ubicación del SOS no gasta texto: viaja en una trama POS aparte.
+Cada mensaje admite **120 bytes**. Hasta 36 viaja en un solo paquete de radio; más largo, el nodo lo
+parte en varios paquetes. La ubicación del SOS no gasta texto: viaja en una trama POS aparte.
+
+## Firma del APK
+
+Todos los APK (locales y de GitHub Actions) se firman con la clave de pruebas
+`android/app/keystore/pruebas.keystore`, así que **las actualizaciones se instalan encima** sin
+desinstalar. Esa clave es pública (está en el repositorio): para publicar en Google Play hay que crear
+una clave privada aparte.
+
+> Si compilas dentro de una carpeta de OneDrive y Gradle falla con *"not a regular file"* o *"Unable to
+> delete directory"*, es OneDrive bloqueando archivos recién copiados: borra
+> `android/app/src/main/assets/public`, ejecuta `npx cap copy android` y compila de nuevo.
 
 ## Desarrollo
 
@@ -79,5 +90,4 @@ datos móviles mientras se usa la red de emergencia.
 ## Pendiente (necesita el hardware)
 
 - Probar la conexión con un nodo ESP32 real e instalar el APK en varios teléfonos.
-- Mensajes de más de 36 bytes (fragmentación en el firmware).
 - Mapa offline en el teléfono.

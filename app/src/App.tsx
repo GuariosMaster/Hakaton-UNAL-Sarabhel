@@ -83,7 +83,6 @@ function CommandApp({ onChangeMode }: { onChangeMode: () => void }) {
   const { status, alerts, url, connect } = useCommand();
   const [tab, setTab] = useState<CommandTab>(status === "conectado" ? "alertas" : "ajustes");
   const [focus, setFocus] = useState<Focus>();
-  const [seen, setSeen] = useState(0);
 
   // Intentar reconectar al servidor guardado al abrir la app.
   useEffect(() => {
@@ -91,13 +90,10 @@ function CommandApp({ onChangeMode }: { onChangeMode: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (tab === "alertas") setSeen(alerts.length);
-  }, [tab, alerts.length]);
 
   const tone = status === "conectado" ? "ok" : status === "conectando" ? "warn" : "off";
   const tabs: Tab<CommandTab>[] = [
-    { id: "alertas", label: "Alertas", icon: "🚨", badge: Math.max(0, alerts.length - seen) },
+    { id: "alertas", label: "Alertas", icon: "🚨", badge: alerts.filter((a) => a.estado === "nueva").length },
     { id: "mapa", label: "Mapa", icon: "🗺️" },
     { id: "chat", label: "Mensajes", icon: "💬" },
     { id: "energia", label: "Energía", icon: "🔋" },

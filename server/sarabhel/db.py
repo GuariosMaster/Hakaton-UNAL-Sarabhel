@@ -50,7 +50,39 @@ CREATE TABLE IF NOT EXISTS positions (
     ts       INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_positions_node_ts ON positions (node_id, ts);
+
+-- Alertas y su gestión en el puesto de mando
+CREATE TABLE IF NOT EXISTS alerts (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    type        TEXT NOT NULL,              -- mensaje_critico | zona_riesgo | bateria_baja
+    node_id     TEXT,
+    long_name   TEXT,
+    text        TEXT,
+    zone        TEXT,
+    battery     INTEGER,
+    lat         REAL,
+    lon         REAL,
+    ts          INTEGER NOT NULL,
+    estado      TEXT NOT NULL DEFAULT 'nueva' CHECK (estado IN ('nueva', 'en_atencion', 'atendida')),
+    equipo      TEXT,                       -- equipo de rescate asignado
+    nota        TEXT,
+    updated_ts  INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_alerts_ts ON alerts (ts);
 """
+
+ALERT_FIELDS = ("type", "node_id", "long_name", "text", "zone", "battery", "lat", "lon", "ts")
+
+
+def create_alert(conn: sqlite3.Connection, alert: dict) -> dict:
+    """Guarda una alerta nueva y devuelve el registro completo (con id y estado)."""
+    row = {k: alert.get(k) for k in ALERT_FIELDS}
+    row["node_id"] = row["node_id"] or alert.get("from_node")
+    row["ts"] = row["ts"] or now()
+    cur = conn.execute(
+        f"INSERT INTO alerts ({', '.join(ALERT_FIELDS)}) VALUES ({', '.join('?' * len(ALERT_FIELDS))})",
+        tuple(row[k] for k in ALERT_FIELDS))
+    return dict(conn.execute("SELECT * FROM alerts WHERE id = ?", (cur.lastrowid,)).fetchone())
 
 
 def connect() -> sqlite3.Connection:

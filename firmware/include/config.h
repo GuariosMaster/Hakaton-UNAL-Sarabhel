@@ -27,9 +27,17 @@ static const uint8_t RF_SYNC_WORDS[] = {0x2D, 0xD4};
 #define GATEWAY_ADDRESS 1        // el gateway del puesto de mando
 #define BROADCAST_ADDRESS 255    // "todos": el gateway lo envía a cada nodo conocido
 
-// Un paquete RHMesh sobre RFM69 lleva como máximo 54 bytes. La trama
-// "MSG|12.4|18.1|100|" ocupa 18, así que el texto puede tener hasta 36 bytes.
+// Tamaño de un paquete de datos por radio: el RFM69 transmite 60 bytes (64 cifrables - 4 de
+// cabecera) y RHMesh usa 6 (RHRouter 5 + RHMesh 1). OJO: RH_MESH_MAX_MESSAGE_LEN de RadioHead
+// vale 249 porque se calcula con el máximo genérico de 255; no sirve para el RFM69.
+#define MAX_PAQUETE 54
+// Mensaje en una sola trama: "MSG|12.4|18.1|100|" ocupa 18 bytes -> 36 de texto.
 #define MAX_TEXTO 36
+// Mensajes más largos se parten en tramas MSGP de hasta 28 bytes de texto
+// ("MSGP|12.4|18.1|100|" 19 + "a3.1.5:" 7 + 28 = 54), máximo 5 partes.
+#define BYTES_FRAGMENTO 28
+#define MAX_FRAGMENTOS 5
+#define MAX_TEXTO_LARGO 120
 
 // --- Pines (SPI por defecto de cada placa) -------------------------------------
 #if defined(CONFIG_IDF_TARGET_ESP32S3)

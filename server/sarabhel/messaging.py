@@ -55,12 +55,17 @@ class MessagingService:
                 (p.get("packet_id"), node, p.get("to"), p.get("channel"), text, priority,
                  lat, lon, p.get("rssi"), p.get("snr"), ts),
             )
+            alert = None
+            if priority == CRITICO:
+                alert = db.create_alert(self.conn, {"type": "mensaje_critico", "node_id": node, "text": text,
+                                                    "long_name": row["long_name"] if row else None,
+                                                    "lat": lat, "lon": lon, "ts": ts})
         event = {"id": cur.lastrowid, "direction": "in", "from_node": node, "to_node": p.get("to"),
                  "long_name": row["long_name"] if row else None, "text": text, "priority": priority,
                  "lat": lat, "lon": lon, "rssi": p.get("rssi"), "snr": p.get("snr"), "ts": ts}
         self.bus.publish(config.EV_MESSAGE, event)
-        if priority == CRITICO:
-            self.bus.publish(config.EV_ALERT, {"type": "mensaje_critico", **event})
+        if alert:
+            self.bus.publish(config.EV_ALERT, {**alert, "from_node": node})
             log.warning("ALERTA CRÍTICA de %s: %s", node, text)
         else:
             log.info("Mensaje %s de %s: %s", priority, node, text)

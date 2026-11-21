@@ -16,7 +16,7 @@ MQTT_PORT = int(_env("MQTT_PORT", "1883"))
 DB_PATH = _env("DB_PATH", str(BASE_DIR / "data" / "sarabhel.db"))
 ZONES_FILE = _env("ZONES_FILE", str(BASE_DIR / "zones" / "zonas_riesgo.geojson"))
 
-# Conexión con el gateway ESP32-S3 + RFM69HCW: sim (simulado) | usb (puerto serie)
+# Conexión con el gateway ESP32-S3 + RFM69HCW: sim | escenario (demo guionizada) | usb (puerto serie)
 MESH_CONNECTION = _env("MESH_CONNECTION", "sim").lower()
 MESH_USB_DEVICE = _env("MESH_USB_DEVICE") or None  # None = autodetectar (COM5, /dev/ttyACM0…)
 MESH_USB_BAUD = int(_env("MESH_USB_BAUD", "115200"))
@@ -30,6 +30,12 @@ BROADCAST_ADDRESS = 255
 # Alerta cuando la batería de un nodo baja de este porcentaje.
 LOW_BATTERY_PCT = int(_env("LOW_BATTERY_PCT", "20"))
 
+# Kit de energía de un nodo (ver ENERGIA.md): batería LiFePO4 12,8 V 6 Ah y consumo medio.
+# Sirven para estimar la autonomía sin sol: carga% x capacidad útil / consumo.
+NODE_BATTERY_WH = float(_env("NODE_BATTERY_WH", "77"))
+NODE_CONSUMPTION_W = float(_env("NODE_CONSUMPTION_W", "0.54"))
+BATTERY_DOD = 0.8  # profundidad de descarga útil
+
 DASHBOARD_HOST = _env("DASHBOARD_HOST", "0.0.0.0")
 DASHBOARD_PORT = int(_env("DASHBOARD_PORT", "8080"))
 TILE_URL = _env("TILE_URL", "https://tile.openstreetmap.org/{z}/{x}/{y}.png")
@@ -40,9 +46,9 @@ WEB_DIR = _env("WEB_DIR", str(BASE_DIR.parent / "web"))
 DOWNLOADS_DIR = _env("DOWNLOADS_DIR", str(BASE_DIR / "descargas"))
 APK_NAME = "RedEmergencia.apk"
 
-# Texto máximo por mensaje (bytes UTF-8). Un paquete RHMesh sobre RFM69 lleva como
-# máximo 54 bytes; la trama "MSG|12.4|18.1|100|" ocupa 18, quedan 36 para el texto.
-MAX_TEXT_BYTES = int(_env("MAX_TEXT_BYTES", "36"))
+# Texto máximo por mensaje (bytes UTF-8). Un paquete por radio lleva 36 bytes de texto; los
+# mensajes más largos el firmware los parte en hasta 5 tramas MSGP (ver firmware/include/config.h).
+MAX_TEXT_BYTES = int(_env("MAX_TEXT_BYTES", "120"))
 
 # --- Temas MQTT -------------------------------------------------------------
 # Red -> servidor: red/albergue/{nodo_id}/{msg|tel|pos|info}
@@ -78,6 +84,7 @@ EV_MESSAGE = "events/msg"
 EV_POSITION = "events/position"
 EV_NODE = "events/node"
 EV_ALERT = "events/alert"
+EV_ALERT_UPDATE = "events/alert_update"
 
 
 def setup_logging(service: str) -> logging.Logger:

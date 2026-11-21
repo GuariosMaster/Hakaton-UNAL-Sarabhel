@@ -86,3 +86,18 @@ button:disabled { opacity: .6; cursor: default; }
   aside { border-left: 0; border-top: 1px solid var(--border); }
   section { max-height: none; }
 }
+
+/* gestión de alertas */
+.alerta.nueva { background: var(--crit-bg); border-color: var(--crit); }
+.alerta.en_atencion { border-color: var(--mod); border-left: 4px solid var(--mod); }
+.alerta.atendida { opacity: .6; }
+.estado { font-size: 11px; font-weight: 600; border-radius: 4px; padding: 0 5px; }
+.estado.nueva { background: var(--crit); color: #fff; }
+.estado.en_atencion { background: var(--mod); color: #fff; }
+.estado.atendida { background: var(--ok); color: #fff; }
+.nota { font-size: 13px; margin-top: 3px; }
+.acciones { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+button.mini { padding: 3px 8px; font-size: 12px; background: var(--panel); color: var(--text); border-color: var(--border); }
+.tools { display: flex; gap: 12px; font-size: 13px; margin-left: auto; margin-right: 16px; }
+.tools a { color: var(--info); text-decoration: none; }
+@media (max-width: 800px) { .tools { display: none; } }

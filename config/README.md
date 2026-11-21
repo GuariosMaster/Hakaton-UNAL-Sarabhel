@@ -13,7 +13,7 @@ Deben ser **idénticos** en el gateway y en todos los nodos.
 | Sync words | `0x2D, 0xD4` | `RF_SYNC_WORDS` |
 | Cifrado | AES-128 por hardware, clave de 16 bytes | `include/clave.h` (no se sube a git) |
 | Malla | RadioHead RHMesh, direcciones 1-254 (1 = gateway) | `NODE_ADDRESS` en `platformio.ini` |
-| Texto por mensaje | 36 bytes máx. (paquete RHMesh de 54 bytes − 18 de la trama) | `MAX_TEXTO` |
+| Texto por mensaje | 36 bytes en una trama (paquete de 54 − 18 de cabecera); hasta 120 partiéndolo en tramas MSGP | `MAX_TEXTO`, `MAX_TEXTO_LARGO` |
 
 ## Trama por aire
 
@@ -23,6 +23,8 @@ MSG|12.4|18.1|82|Albergue Coliseo: 280 personas
 TEL|12.4|18.1|82|
 POS|12.4|18.1|82|5.06012,-75.50111
 INFO|12.4|18.1|82|Albergue Coliseo
+MSGP|12.4|18.1|82|a3.1.2:primera parte de un mens     (mensaje largo: id a3, parte 1 de 2)
+MSGP|12.4|18.1|82|a3.2.2:aje largo
 ```
 
 ## Gateway → servidor (USB, 115.200 baudios, una línea JSON por trama)

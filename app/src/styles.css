@@ -192,3 +192,13 @@ main { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: 
 .bar span { display: block; height: 100%; border-radius: 4px; background: var(--ok); }
 .bar.mid span { background: var(--mod); }
 .bar.low span { background: var(--crit); }
+
+/* ---------- gestión de alertas ---------- */
+.list li.alerta.nueva { border-color: var(--crit); background: var(--crit-bg); }
+.list li.alerta.en_atencion { border-left: 4px solid var(--mod); }
+.list li.alerta.atendida { opacity: .6; }
+.estado { font-size: 11px; font-weight: 700; border-radius: 5px; padding: 1px 6px; color: #fff; margin-left: 4px; }
+.estado.nueva { background: var(--crit); }
+.estado.en_atencion { background: var(--mod); }
+.estado.atendida { background: var(--ok); }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }

@@ -26,7 +26,7 @@ struct Mensaje {
   uint8_t para;
   bool propio;          // enviado desde este nodo
   unsigned long t;      // millis() al recibir/enviar
-  char texto[MAX_TEXTO * 2 + 1];
+  char texto[MAX_TEXTO_LARGO + 1];
 };
 static const int MAX_MENSAJES = 30;
 static Mensaje mensajes[MAX_MENSAJES];
@@ -35,7 +35,9 @@ static uint32_t seq = 0;
 
 static Energia energia = {0, 0, 0};
 static unsigned long ultimoTel = 0, ultimoInfo = 0, ultimaMedicion = 0;
-static uint8_t buf[RH_MESH_MAX_MESSAGE_LEN + 1];
+static uint8_t buf[MAX_PAQUETE + 8];
+static Reensamblador reensamblador;
+static char textoLargo[MAX_TEXTO_LARGO + 1];
 
 static void guardarMensaje(uint8_t de, uint8_t para, const char* texto, bool propio) {
   Mensaje& m = mensajes[totalMensajes % MAX_MENSAJES];
@@ -50,7 +52,7 @@ static void guardarMensaje(uint8_t de, uint8_t para, const char* texto, bool pro
 }
 
 static uint8_t enviarTrama(const char* tipo, const char* msg, uint8_t dest = GATEWAY_ADDRESS) {
-  char trama[RH_MESH_MAX_MESSAGE_LEN + 1];
+  char trama[MAX_PAQUETE + 1];
   size_t n = armarTrama(trama, sizeof(trama), tipo, energia.bat, energia.panel, energia.carga, msg);
   return mesh.sendtoWait((uint8_t*)trama, n, dest);
 }
@@ -79,7 +81,7 @@ static void apiEstado() {
   doc["panel"] = energia.panel;
   doc["carga"] = energia.carga;
   doc["conectados"] = WiFi.softAPgetStationNum();
-  doc["max_texto"] = MAX_TEXTO;
+  doc["max_texto"] = MAX_TEXTO_LARGO;
   doc["uptime"] = millis() / 1000;
   responderJson(200, doc);
 }
@@ -114,9 +116,9 @@ static void apiEnviar() {
   }
   const char* msg = in["msg"] | "";
   int dest = in["dest"] | (int)GATEWAY_ADDRESS;
-  if (!msg[0] || bytesUtf8(msg) > MAX_TEXTO) {
+  if (!msg[0] || bytesUtf8(msg) > MAX_TEXTO_LARGO) {
     out["ok"] = false;
-    out["error"] = "El mensaje debe tener entre 1 y " + String(MAX_TEXTO) + " bytes";
+    out["error"] = "El mensaje debe tener entre 1 y " + String(MAX_TEXTO_LARGO) + " bytes";
     return responderJson(400, out);
   }
   if (dest < 1 || dest > 254) dest = GATEWAY_ADDRESS;
@@ -128,7 +130,7 @@ static void apiEnviar() {
     enviarTrama("POS", pos, GATEWAY_ADDRESS);
   }
 
-  uint8_t r = enviarTrama("MSG", msg, (uint8_t)dest);
+  uint8_t r = enviarTexto(mesh, (uint8_t)dest, msg, energia);  // una trama o varias si es largo
   bool ok = r == RH_ROUTER_ERROR_NONE;
   if (ok) guardarMensaje(NODE_ADDRESS, dest, msg, true);
   out["ok"] = ok;
@@ -198,13 +200,18 @@ void loop() {
   server.handleClient();
 
   // Radio: recibir mensajes para este nodo y enrutar los de otros (lo hace RHMesh aquí).
-  uint8_t len = RH_MESH_MAX_MESSAGE_LEN;
+  uint8_t len = sizeof(buf) - 1;
   uint8_t from;
   if (mesh.recvfromAckTimeout(buf, &len, 10, &from)) {
     buf[len] = 0;
     Trama t;
-    if (leerTrama((const char*)buf, t) && strcmp(t.tipo, "MSG") == 0 && t.msg[0]) {
-      guardarMensaje(from, NODE_ADDRESS, t.msg, false);
+    if (leerTrama((const char*)buf, t) && t.msg[0]) {
+      if (strcmp(t.tipo, "MSG") == 0) {
+        guardarMensaje(from, NODE_ADDRESS, t.msg, false);
+      } else if (strcmp(t.tipo, "MSGP") == 0 &&
+                 reensamblador.agregar(from, t.msg, textoLargo, sizeof(textoLargo))) {
+        guardarMensaje(from, NODE_ADDRESS, textoLargo, false);
+      }
     }
   }
 

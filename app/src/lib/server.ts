@@ -32,9 +32,16 @@ export interface ServerMessage {
   ts: number;
 }
 
+export type AlertState = "nueva" | "en_atencion" | "atendida";
+
 export interface ServerAlert {
+  id: number;
   type: "mensaje_critico" | "zona_riesgo" | "bateria_baja";
-  from_node: string;
+  node_id?: string | null;
+  from_node?: string;
+  estado: AlertState;
+  equipo?: string | null;
+  nota?: string | null;
   long_name?: string | null;
   text?: string;
   zone?: string;
@@ -60,6 +67,7 @@ export interface StreamHandlers {
   node: (n: ServerNode) => void;
   position: (p: ServerPosition) => void;
   alert: (a: ServerAlert) => void;
+  alert_update: (a: ServerAlert) => void;
 }
 
 export class ServerClient {
@@ -76,10 +84,27 @@ export class ServerClient {
     return r.json() as Promise<T>;
   }
 
-  config() { return this.get<{ tile_url: string; center: [number, number]; max_text_bytes: number }>("/api/config"); }
+  config() {
+    return this.get<{
+      tile_url: string; center: [number, number]; max_text_bytes: number;
+      energy?: { battery_wh: number; consumption_w: number; dod: number; low_pct: number };
+    }>("/api/config");
+  }
   nodes() { return this.get<ServerNode[]>("/api/nodes"); }
   messages(limit = 100) { return this.get<ServerMessage[]>(`/api/messages?limit=${limit}`); }
   zones() { return this.get<GeoJSON.FeatureCollection>("/api/zones"); }
+  alerts(limit = 100) { return this.get<ServerAlert[]>(`/api/alerts?limit=${limit}`); }
+
+  async updateAlert(id: number, changes: { estado?: AlertState; equipo?: string; nota?: string }): Promise<ServerAlert> {
+    const r = await fetch(`${this.base}/api/alerts/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(changes),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    return r.json() as Promise<ServerAlert>;
+  }
 
   async send(text: string, to?: string | null): Promise<void> {
     const r = await fetch(this.base + "/api/send", {
@@ -142,6 +167,7 @@ export class ServerClient {
     on("node");
     on("position");
     on("alert");
+    on("alert_update");
     return () => es.close();
   }
 }

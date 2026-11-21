@@ -4,7 +4,19 @@ const STALE_MS = 30 * 60 * 1000;   // nodo sin reportar en 30 min = gris
 const ALERT_MS = 30 * 60 * 1000;   // nodo con alerta crítica reciente = rojo
 const MAX_ITEMS = 200;
 
-const state = { nodes: new Map(), markers: new Map(), trail: null, alerts: 0, maxBytes: 200 };
+const state = { nodes: new Map(), markers: new Map(), trail: null, alerts: 0, maxBytes: 200, energy: null };
+
+// Autonomía estimada sin sol (horas) con el kit de energía configurado en el servidor.
+function autonomyHours(n) {
+  const e = state.energy;
+  if (!e || n.battery == null || !e.consumption_w) return null;
+  return (n.battery / 100) * e.battery_wh * e.dod / e.consumption_w;
+}
+
+function fmtHours(h) {
+  if (h == null) return "";
+  return h >= 48 ? `≈ ${(h / 24).toFixed(1)} días` : `≈ ${Math.round(h)} h`;
+}
 const $ = (id) => document.getElementById(id);
 
 // ---------- utilidades ----------
@@ -100,7 +112,7 @@ function renderMarker(n) {
   }
   const c = nodeColor(n);
   m.setLatLng([n.lat, n.lon]).setStyle({ color: c, fillColor: c });
-  m.setTooltipContent(n.short_name || n.node_id);
+  m.setTooltipContent(n.short_name || (n.long_name ? n.long_name.slice(0, 18) : n.node_id));
   m.bindPopup(() => popupContent(state.nodes.get(n.node_id)));
 }
 
@@ -184,6 +196,8 @@ function renderEnergy(nodes) {
       el("span", null, `🔋 ${n.battery ?? "—"}%${n.voltage != null ? ` · ${n.voltage.toFixed(2)} V` : ""}`),
       el("span", null, n.panel_v != null ? (n.panel_v > 1 ? `☀️ ${n.panel_v.toFixed(1)} V` : "🌙 sin sol") : ""),
     );
+    const h = autonomyHours(n);
+    if (h != null) detail.append(el("span", null, `⏱ ${fmtHours(h)} sin sol`));
     li.append(meta, bar, detail);
     list.append(li);
   }
@@ -219,24 +233,79 @@ function addMessage(m, prepend = true) {
   while (list.children.length > MAX_ITEMS) list.lastChild.remove();
 }
 
-function addAlert(a, prepend = true) {
-  const li = el("li", "critico clickable");
-  const meta = el("div", "meta");
-  const titles = { zona_riesgo: "Entró en zona de riesgo", bateria_baja: "Batería baja", mensaje_critico: "Mensaje crítico" };
-  const title = titles[a.type] || "Alerta";
-  const body = a.type === "zona_riesgo" ? a.zone
-    : a.type === "bateria_baja" ? `Batería al ${a.battery}%${a.voltage != null ? ` (${a.voltage.toFixed(2)} V)` : ""}: revisar el kit de energía`
-    : a.text;
-  meta.append(el("b", null, `${title} · ${a.long_name || nodeName(a.from_node)}`), el("span", null, ago(a.ts)));
-  li.append(meta, el("div", "text", body));
-  li.append(el("div", "meta", a.lat != null ? `📍 ${a.lat.toFixed(5)}, ${a.lon.toFixed(5)}` : "📍 posición desconocida"));
-  li.onclick = () => focus(a.lat, a.lon);
+// ---------- alertas y su gestión ----------
+const alertMap = new Map();  // id -> alerta
+const ESTADOS = { nueva: "Nueva", en_atencion: "En atención", atendida: "Atendida" };
+
+function upsertAlert(a) {
+  if (a.id == null) return;
+  alertMap.set(a.id, { ...(alertMap.get(a.id) || {}), ...a });
+  renderAlerts();
+}
+
+async function updateAlert(id, changes) {
+  try {
+    const row = await api(`/api/alerts/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(changes),
+    });
+    upsertAlert(row);
+  } catch (e) {
+    alert(`No se pudo actualizar la alerta: ${e.message}`);
+  }
+}
+
+function alertBody(a) {
+  if (a.type === "zona_riesgo") return a.zone;
+  if (a.type === "bateria_baja") return `Batería al ${a.battery}%: revisar el kit de energía`;
+  return a.text;
+}
+
+function actionButton(label, onClick) {
+  const b = el("button", "mini", label);
+  b.type = "button";
+  b.onclick = (e) => { e.stopPropagation(); onClick(); };
+  return b;
+}
+
+function renderAlerts() {
+  const order = { nueva: 0, en_atencion: 1, atendida: 2 };
+  const items = [...alertMap.values()].sort((x, y) => (order[x.estado] - order[y.estado]) || (y.ts - x.ts)).slice(0, 60);
   const list = $("alerts");
-  prepend ? list.prepend(li) : list.append(li);
-  while (list.children.length > 50) list.lastChild.remove();
-  state.alerts = list.children.length;
-  $("alert-count").textContent = state.alerts;
-  $("alerts-empty").hidden = state.alerts > 0;
+  list.replaceChildren();
+  const titles = { zona_riesgo: "Zona de riesgo", bateria_baja: "Batería baja", mensaje_critico: "Mensaje crítico" };
+  for (const a of items) {
+    const li = el("li", `alerta ${a.estado} clickable`);
+    const meta = el("div", "meta");
+    const left = el("span");
+    left.append(el("b", null, `${titles[a.type] || "Alerta"} · ${a.long_name || nodeName(a.node_id)}`), " ",
+                el("span", `estado ${a.estado}`, ESTADOS[a.estado] || a.estado));
+    meta.append(left, el("span", null, ago(a.ts)));
+    li.append(meta, el("div", "text", alertBody(a)));
+    const info = [];
+    info.push(a.lat != null ? `📍 ${a.lat.toFixed(5)}, ${a.lon.toFixed(5)}` : "📍 posición desconocida");
+    if (a.equipo) info.push(`👥 ${a.equipo}`);
+    li.append(el("div", "meta", info.join(" · ")));
+    if (a.nota) li.append(el("div", "nota", `📝 ${a.nota}`));
+    const actions = el("div", "acciones");
+    if (a.estado === "nueva") actions.append(actionButton("Atender", () => updateAlert(a.id, { estado: "en_atencion" })));
+    if (a.estado !== "atendida") actions.append(actionButton("✓ Atendida", () => updateAlert(a.id, { estado: "atendida" })));
+    else actions.append(actionButton("Reabrir", () => updateAlert(a.id, { estado: "nueva" })));
+    actions.append(actionButton("👥 Equipo", () => {
+      const v = prompt("Equipo de rescate asignado:", a.equipo || "");
+      if (v !== null) updateAlert(a.id, { equipo: v.trim(), ...(a.estado === "nueva" && v.trim() ? { estado: "en_atencion" } : {}) });
+    }));
+    actions.append(actionButton("📝 Nota", () => {
+      const v = prompt("Nota:", a.nota || "");
+      if (v !== null) updateAlert(a.id, { nota: v.trim() });
+    }));
+    li.append(actions);
+    li.onclick = () => focus(a.lat, a.lon);
+    list.append(li);
+  }
+  const pending = items.filter((a) => a.estado !== "atendida").length;
+  $("alert-count").textContent = pending;
+  $("alert-count").className = pending ? "count warn" : "count";
+  $("alerts-empty").hidden = items.length > 0;
 }
 
 // ---------- envío ----------
@@ -290,15 +359,17 @@ function connectStream() {
   on("position", (p) => upsertNode({ node_id: p.node_id, lat: p.lat, lon: p.lon, alt: p.alt,
                                      pos_ts: p.ts, risk_zone: p.risk_zone, last_heard: p.ts }));
   on("alert", (a) => {
-    addAlert(a);
+    upsertAlert(a);
     if (a.type === "mensaje_critico") upsertNode({ node_id: a.from_node, alert_ts: a.ts });
   });
+  on("alert_update", (a) => upsertAlert(a));
 }
 
 // ---------- arranque ----------
 async function main() {
   const cfg = await api("/api/config");
   state.maxBytes = cfg.max_text_bytes;
+  state.energy = cfg.energy || null;
   initMap(cfg);
   initSendForm(cfg.max_text_bytes);
   connectStream();  // antes de cargar historial para no perder eventos
@@ -306,14 +377,14 @@ async function main() {
   const [nodes, messages] = await Promise.all([api("/api/nodes"), api("/api/messages?limit=100"), loadZones()]);
   nodes.forEach(upsertNode);
   messages.forEach((m) => addMessage(m, false));
-  messages.filter((m) => m.priority === "critico" && m.direction === "in")
-          .slice(0, 20)
-          .forEach((m) => addAlert({ type: "mensaje_critico", ...m }, false));
+  (await api("/api/alerts?limit=100")).forEach((a) => alertMap.set(a.id, a));
+  renderAlerts();
 
   // Refresca colores y "hace X min" aunque no lleguen eventos.
   setInterval(() => {
     state.nodes.forEach(renderMarker);
     renderNodeList();
+    renderAlerts();
   }, 30000);
 }
 

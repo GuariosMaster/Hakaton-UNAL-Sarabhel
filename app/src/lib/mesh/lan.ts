@@ -81,6 +81,7 @@ export class LanRadio implements RadioLink {
         if (num !== undefined) this.ev.node({ num, lat: p.lat, lon: p.lon, posTime: p.ts, lastHeard: p.ts });
       },
       alert: () => {},
+      alert_update: () => {},
     });
   }
 

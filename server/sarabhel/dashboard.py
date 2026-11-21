@@ -1,5 +1,7 @@
 """Dashboard del puesto de mando: API REST + eventos en vivo (SSE) + mapa web."""
 import asyncio
+import csv
+import io
 import json
 import secrets
 import sqlite3
@@ -10,7 +12,7 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
@@ -59,7 +61,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Sarabhel — Puesto de mando", lifespan=lifespan)
 # La app móvil (Capacitor) carga desde su propio origen (http://localhost en Android)
 # y consulta esta API por la red local del puesto de mando.
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST"],
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST", "PATCH"],
                    allow_headers=["Content-Type"])
 
 
@@ -148,7 +150,9 @@ def device_position(req: DevicePosition):
 
 @app.get("/api/config")
 def get_config():
-    return {"tile_url": config.TILE_URL, "center": config.MAP_CENTER, "max_text_bytes": config.MAX_TEXT_BYTES}
+    return {"tile_url": config.TILE_URL, "center": config.MAP_CENTER, "max_text_bytes": config.MAX_TEXT_BYTES,
+            "energy": {"battery_wh": config.NODE_BATTERY_WH, "consumption_w": config.NODE_CONSUMPTION_W,
+                       "dod": config.BATTERY_DOD, "low_pct": config.LOW_BATTERY_PCT}}
 
 
 @app.get("/api/nodes")
@@ -169,6 +173,77 @@ def get_positions(node_id: str, limit: int = Query(200, ge=1, le=5000)):
     rows = query("SELECT lat, lon, alt, ts FROM positions WHERE node_id = ? ORDER BY ts DESC LIMIT ?",
                  (node_id, limit))
     return list(reversed(rows))
+
+
+# --- Gestión de alertas -------------------------------------------------------
+class AlertUpdate(BaseModel):
+    estado: str | None = Field(default=None, pattern="^(nueva|en_atencion|atendida)$")
+    equipo: str | None = Field(default=None, max_length=60)
+    nota: str | None = Field(default=None, max_length=300)
+
+
+@app.get("/api/alerts")
+def get_alerts(limit: int = Query(100, ge=1, le=1000)):
+    """Alertas recientes: primero las pendientes (nueva, en atención), luego las atendidas."""
+    return query(
+        """SELECT * FROM alerts ORDER BY
+             CASE estado WHEN 'nueva' THEN 0 WHEN 'en_atencion' THEN 1 ELSE 2 END, ts DESC
+           LIMIT ?""", (limit,))
+
+
+@app.patch("/api/alerts/{alert_id}")
+def update_alert(alert_id: int, req: AlertUpdate):
+    changes = req.model_dump(exclude_none=True)
+    if not changes:
+        raise HTTPException(400, "Nada que actualizar")
+    conn = db.connect()
+    try:
+        with conn:
+            sets = ", ".join(f"{k} = ?" for k in changes)
+            cur = conn.execute(f"UPDATE alerts SET {sets}, updated_ts = ? WHERE id = ?",
+                               (*changes.values(), db.now(), alert_id))
+            if cur.rowcount == 0:
+                raise HTTPException(404, "Alerta no encontrada")
+            row = dict(conn.execute("SELECT * FROM alerts WHERE id = ?", (alert_id,)).fetchone())
+    finally:
+        conn.close()
+    # Avisar a todos los dashboards y apps conectados.
+    if bus.client.is_connected():
+        bus.publish(config.EV_ALERT_UPDATE, row)
+    else:
+        hub.forward(config.EV_ALERT_UPDATE, row)
+    return row
+
+
+# --- Exportar reportes (CSV, para entregar a las autoridades) -----------------
+def _csv(rows: list[dict], columns: list[str], filename: str) -> Response:
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(columns)
+    for r in rows:
+        w.writerow([r.get(c) if c != "fecha" else _fecha(r.get("ts")) for c in columns])
+    return Response("﻿" + buf.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+def _fecha(ts) -> str:
+    import datetime
+    return datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S") if ts else ""
+
+
+@app.get("/api/export/mensajes.csv")
+def export_messages():
+    rows = query("""SELECT m.*, n.long_name FROM messages m LEFT JOIN nodes n ON n.node_id = m.from_node
+                    ORDER BY m.ts""")
+    return _csv(rows, ["fecha", "direction", "from_node", "long_name", "to_node", "priority", "text", "lat", "lon"],
+                "mensajes.csv")
+
+
+@app.get("/api/export/alertas.csv")
+def export_alerts():
+    rows = query("SELECT * FROM alerts ORDER BY ts")
+    return _csv(rows, ["fecha", "type", "node_id", "long_name", "text", "zone", "battery", "lat", "lon",
+                       "estado", "equipo", "nota"], "alertas.csv")
 
 
 @app.get("/api/zones")

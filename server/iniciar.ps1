@@ -9,12 +9,13 @@
 
 .EXAMPLE
   .\iniciar.ps1                       # con nodos FSK simulados
+  .\iniciar.ps1 -Radio escenario      # sismo guionizado para la presentación (DEMO.md)
   .\iniciar.ps1 -Radio ninguno        # solo teléfonos por Wi-Fi (prueba entre teléfonos)
   .\iniciar.ps1 -Radio usb            # gateway ESP32-S3 por USB (detecta el puerto)
   .\iniciar.ps1 -Radio usb -Puerto COM5
 #>
 param(
-  [ValidateSet("sim", "usb", "ninguno")]
+  [ValidateSet("sim", "escenario", "usb", "ninguno")]
   [string]$Radio = "sim",
   [string]$Puerto = ""
 )
@@ -52,6 +53,7 @@ Start-Service-Window "Dashboard" "& '$py' -m sarabhel.dashboard"
 
 switch ($Radio) {
   "sim"    { Start-Service-Window "Listener (simulado)" "`$env:MESH_CONNECTION='sim'; & '$py' -m sarabhel.listener" }
+  "escenario" { Start-Service-Window "Listener (escenario de demo)" "`$env:MESH_CONNECTION='escenario'; & '$py' -m sarabhel.listener" }
   "usb"    { Start-Service-Window "Listener (gateway USB $Puerto)" "`$env:MESH_CONNECTION='usb'; `$env:MESH_USB_DEVICE='$Puerto'; & '$py' -m sarabhel.listener" }
   "ninguno" { }
 }

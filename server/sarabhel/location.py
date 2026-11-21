@@ -47,9 +47,11 @@ class LocationService:
                                               "ts": ts, "risk_zone": zone})
         if zone and zone != prev["risk_zone"]:
             log.warning("Nodo %s entró en zona de riesgo: %s", node, zone)
-            self.bus.publish(config.EV_ALERT, {"type": "zona_riesgo", "from_node": node,
-                                               "long_name": prev["long_name"], "zone": zone,
-                                               "lat": lat, "lon": lon, "ts": ts})
+            with self.lock, self.conn:
+                alert = db.create_alert(self.conn, {"type": "zona_riesgo", "node_id": node, "zone": zone,
+                                                    "long_name": prev["long_name"], "lat": lat, "lon": lon,
+                                                    "ts": ts})
+            self.bus.publish(config.EV_ALERT, {**alert, "from_node": node})
 
     def on_nodeinfo(self, _topic: str, p: dict) -> None:
         node = p.get("from")
@@ -83,10 +85,11 @@ class LocationService:
         low = config.LOW_BATTERY_PCT
         if battery is not None and battery < low and (prev["battery"] is None or prev["battery"] >= low):
             log.warning("Batería baja en %s: %s%%", node, battery)
-            self.bus.publish(config.EV_ALERT, {"type": "bateria_baja", "from_node": node,
-                                               "long_name": prev["long_name"], "battery": battery,
-                                               "voltage": p.get("voltage"), "lat": prev["lat"],
-                                               "lon": prev["lon"], "ts": ts})
+            with self.lock, self.conn:
+                alert = db.create_alert(self.conn, {"type": "bateria_baja", "node_id": node, "battery": battery,
+                                                    "long_name": prev["long_name"], "lat": prev["lat"],
+                                                    "lon": prev["lon"], "ts": ts})
+            self.bus.publish(config.EV_ALERT, {**alert, "from_node": node, "voltage": p.get("voltage")})
 
     def _emit_node(self, node: str) -> None:
         with self.lock:

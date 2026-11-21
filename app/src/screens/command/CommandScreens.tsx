@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { MapView, type MapMarker } from "../../components/MapView";
 import { Composer, Empty, PriorityBadge } from "../../components/ui";
-import type { ServerNode } from "../../lib/server";
+import type { AlertState, ServerAlert, ServerNode } from "../../lib/server";
 import { ago, now } from "../../lib/util";
 import { serverNodeName, useCommand } from "../../store/command";
 
@@ -17,28 +17,93 @@ function nodeColor(n: ServerNode) {
 
 export type Focus = { lat: number; lon: number; seq: number };
 
+const ESTADO_LABEL = { nueva: "Nueva", en_atencion: "En atención", atendida: "Atendida" } as const;
+const ESTADO_ORDEN = { nueva: 0, en_atencion: 1, atendida: 2 } as const;
+
+function alertTitle(a: ServerAlert) {
+  return a.type === "zona_riesgo" ? "⚠ Zona de riesgo" : a.type === "bateria_baja" ? "🪫 Batería baja" : "🆘 Mensaje crítico";
+}
+
+function alertBody(a: ServerAlert) {
+  return a.type === "zona_riesgo" ? a.zone : a.type === "bateria_baja" ? `Batería al ${a.battery}%: revisar el kit de energía` : a.text;
+}
+
 export function CommandAlertsScreen({ onLocate }: { onLocate: (lat: number, lon: number) => void }) {
-  const { alerts, nodes } = useCommand();
+  const { alerts, nodes, updateAlert } = useCommand();
+  const [open, setOpen] = useState<ServerAlert>();
+  const [equipo, setEquipo] = useState("");
+  const [nota, setNota] = useState("");
+  const [error, setError] = useState<string>();
+  const sorted = [...alerts].sort((x, y) => (ESTADO_ORDEN[x.estado] - ESTADO_ORDEN[y.estado]) || y.ts - x.ts);
+
+  function edit(a: ServerAlert) {
+    setOpen(a);
+    setEquipo(a.equipo ?? "");
+    setNota(a.nota ?? "");
+    setError(undefined);
+  }
+
+  async function save(estado?: AlertState) {
+    if (!open) return;
+    try {
+      await updateAlert(open.id, {
+        equipo: equipo.trim(), nota: nota.trim(),
+        estado: estado ?? (open.estado === "nueva" && equipo.trim() ? "en_atencion" : undefined),
+      });
+      setOpen(undefined);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   return (
     <div className="screen">
-      {alerts.length === 0 && <Empty>Sin alertas críticas por ahora.</Empty>}
+      {sorted.length === 0 && <Empty>Sin alertas por ahora.</Empty>}
       <ul className="list">
-        {alerts.map((a, i) => (
-          <li key={`${a.ts}-${a.from_node}-${i}`} className="critico clickable"
-              onClick={() => a.lat != null && a.lon != null && onLocate(a.lat, a.lon)}>
+        {sorted.map((a) => (
+          <li key={a.id} className={`alerta ${a.estado} clickable`} onClick={() => edit(a)}>
             <div className="meta">
-              <b>{a.type === "zona_riesgo" ? "⚠ Zona de riesgo" : a.type === "bateria_baja" ? "🪫 Batería baja" : "🆘 Mensaje crítico"}</b>
+              <b>{alertTitle(a)} <span className={`estado ${a.estado}`}>{ESTADO_LABEL[a.estado]}</span></b>
               <span>{ago(a.ts)}</span>
             </div>
-            <div className="text">{a.type === "zona_riesgo" ? a.zone
-              : a.type === "bateria_baja" ? `Batería al ${a.battery}%: revisar el kit de energía` : a.text}</div>
+            <div className="text">{alertBody(a)}</div>
             <div className="meta">
-              <span>{a.long_name || serverNodeName(nodes, a.from_node)}</span>
-              <span>{a.lat != null ? "📍 Ver en mapa" : "📍 sin ubicación"}</span>
+              <span>{a.long_name || serverNodeName(nodes, a.from_node ?? a.node_id)}</span>
+              {a.lat != null && a.lon != null && (
+                <button type="button" className="link" onClick={(e) => { e.stopPropagation(); onLocate(a.lat!, a.lon!); }}>
+                  📍 Ver en mapa
+                </button>
+              )}
             </div>
+            {(a.equipo || a.nota) && (
+              <div className="meta">{[a.equipo && `👥 ${a.equipo}`, a.nota && `📝 ${a.nota}`].filter(Boolean).join(" · ")}</div>
+            )}
           </li>
         ))}
       </ul>
+
+      {open && (
+        <div className="sheet-backdrop" onClick={() => setOpen(undefined)}>
+          <form className="sheet" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); void save(); }}>
+            <p><b>{alertTitle(open)}</b> · {open.long_name || serverNodeName(nodes, open.node_id)}</p>
+            <p className="muted">{alertBody(open)}</p>
+            <label className="field">Equipo de rescate asignado
+              <input value={equipo} onChange={(e) => setEquipo(e.target.value)} maxLength={60} placeholder="Ej: Bomberos 2" />
+            </label>
+            <label className="field">Nota
+              <input value={nota} onChange={(e) => setNota(e.target.value)} maxLength={300} placeholder="Ej: 3 heridos leves" />
+            </label>
+            {error && <p className="error">{error}</p>}
+            <div className="row">
+              {open.estado === "nueva" && <button type="button" onClick={() => void save("en_atencion")}>Atender</button>}
+              {open.estado !== "atendida"
+                ? <button type="button" onClick={() => void save("atendida")}>✓ Atendida</button>
+                : <button type="button" onClick={() => void save("nueva")}>Reabrir</button>}
+              <button type="submit" className="primary">Guardar</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
@@ -52,7 +117,7 @@ export function CommandMapScreen({ focus }: { focus?: Focus }) {
       lat: n.lat!,
       lon: n.lon!,
       color: nodeColor(n),
-      label: n.short_name || n.node_id,
+      label: n.short_name || n.long_name?.slice(0, 18) || n.node_id,
       popup: [
         n.long_name || n.node_id,
         `Escuchado ${ago(n.last_heard)}`,
@@ -69,8 +134,14 @@ export function CommandMapScreen({ focus }: { focus?: Focus }) {
 }
 
 /** Energía de cada nodo (micro-redes solares): los más críticos primero. */
+function autonomy(battery: number | null | undefined, kit?: { battery_wh: number; consumption_w: number; dod: number }) {
+  if (battery == null || !kit || !kit.consumption_w) return "";
+  const h = (battery / 100) * kit.battery_wh * kit.dod / kit.consumption_w;
+  return h >= 48 ? `⏱ ≈ ${(h / 24).toFixed(1)} días sin sol` : `⏱ ≈ ${Math.round(h)} h sin sol`;
+}
+
 export function CommandEnergyScreen() {
-  const { nodes } = useCommand();
+  const { nodes, energyKit } = useCommand();
   const list = Object.values(nodes)
     .filter((n) => n.battery != null || n.voltage != null)
     .sort((a, b) => (a.battery ?? 101) - (b.battery ?? 101));
@@ -99,6 +170,7 @@ export function CommandEnergyScreen() {
                 <span>🔋 {n.battery ?? "—"}%{n.voltage != null ? ` · ${n.voltage.toFixed(2)} V` : ""}</span>
                 <span>{n.panel_v != null ? (n.panel_v > 1 ? `☀️ ${n.panel_v.toFixed(1)} V` : "🌙 sin sol") : ""}</span>
               </div>
+              {energyKit && n.battery != null && <div className="meta"><span>{autonomy(n.battery, energyKit)}</span></div>}
             </li>
           );
         })}

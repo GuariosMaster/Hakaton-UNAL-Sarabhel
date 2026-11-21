@@ -108,6 +108,25 @@ El firmware está en [`firmware/`](../firmware/) y los parámetros en [`firmware
 | Trama por aire | `TIPO|BAT_V|PANEL_V|CARGA_PCT|MENSAJE` (TIPO: MSG, TEL, POS, INFO) | Ej: `MSG|12.4|18.1|82|Albergue Coliseo: 280 personas` (texto máx. 36 bytes) |
 | USB Serial (gateway → PC) | JSON a 115.200 baudios | Ej: `{"nodo":2,"tipo":"MSG","bat":12.4,"panel":18.1,"carga":82,"msg":"...","rssi":-72}` |
 
+## Gestión de alertas y reportes
+
+- Cada alerta (mensaje crítico, zona de riesgo, batería baja) se guarda en la tabla `alerts` con
+  estado `nueva` → `en_atencion` → `atendida`, equipo asignado y nota.
+- API: `GET /api/alerts` y `PATCH /api/alerts/{id}` con `{"estado","equipo","nota"}`; los cambios se
+  publican en `events/alert_update` y se ven en vivo en el dashboard y en la app.
+- Exportar: `GET /api/export/mensajes.csv` y `GET /api/export/alertas.csv` (enlaces en el dashboard).
+
+## Energía
+
+`NODE_BATTERY_WH` (77) y `NODE_CONSUMPTION_W` (0,54) describen el kit de cada nodo
+([ENERGIA.md](../ENERGIA.md)); con ellos el dashboard y la app estiman la autonomía sin sol.
+`LOW_BATTERY_PCT` (20) fija el umbral de la alerta de batería baja.
+
+## Escenario de demo
+
+`MESH_CONNECTION=escenario` (o `iniciar.ps1 -Radio escenario`) reproduce un sismo guionizado y luego
+sigue con la simulación normal. Guion en [DEMO.md](../DEMO.md).
+
 ## Descarga de la app sin internet
 
 El dashboard sirve la página de descarga en `/descargar` y el APK en `/descargar/RedEmergencia.apk`. Antes del evento, copiar el APK a `server/descargas/` (ver `descargas/LEEME.md`). Los teléfonos conectados al Wi‑Fi del puesto de mando instalan la app abriendo `http://192.168.1.10:8080/descargar`. La página funciona aunque el broker MQTT esté apagado.

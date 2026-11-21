@@ -12,10 +12,25 @@
 RH_RF69 radio(PIN_RF_CS, PIN_RF_INT);
 RHMesh mesh(radio, GATEWAY_ADDRESS);
 
-static uint8_t buf[RH_MESH_MAX_MESSAGE_LEN + 1];
+static uint8_t buf[MAX_PAQUETE + 8];
+static Reensamblador reensamblador;
+static char textoLargo[MAX_TEXTO_LARGO + 1];
 static bool conocido[256] = {false};  // nodos de los que hemos recibido algo
 static String lineaPc;
 static unsigned long ultimoTel = 0;
+
+static void emitirJsonTexto(uint8_t from, const Trama& t, const char* texto, int rssi) {
+  JsonDocument doc;
+  doc["nodo"] = from;
+  doc["tipo"] = "MSG";
+  doc["bat"] = t.bat;
+  doc["panel"] = t.panel;
+  doc["carga"] = t.carga;
+  doc["msg"] = texto;
+  doc["rssi"] = rssi;
+  serializeJson(doc, Serial);
+  Serial.println();
+}
 
 static void emitirJson(uint8_t from, const Trama& t, int rssi) {
   JsonDocument doc;
@@ -53,11 +68,7 @@ static void reportarEnergiaPropia() {
 }
 
 static bool enviarA(uint8_t dest, const char* texto) {
-  Energia e = medirEnergia();
-  char trama[RH_MESH_MAX_MESSAGE_LEN + 1];
-  size_t n = armarTrama(trama, sizeof(trama), "MSG", e.bat, e.panel, e.carga, texto);
-  uint8_t r = mesh.sendtoWait((uint8_t*)trama, n, dest);
-  return r == RH_ROUTER_ERROR_NONE;
+  return enviarTexto(mesh, dest, texto, medirEnergia()) == RH_ROUTER_ERROR_NONE;
 }
 
 static void procesarLineaPc(const String& linea) {
@@ -96,13 +107,21 @@ void setup() {
 
 void loop() {
   // 1. Radio: recibir (y enrutar tramas de otros nodos, lo hace RHMesh dentro de esta llamada).
-  uint8_t len = RH_MESH_MAX_MESSAGE_LEN;
+  uint8_t len = sizeof(buf) - 1;
   uint8_t from;
   if (mesh.recvfromAckTimeout(buf, &len, 20, &from)) {
     buf[len] = 0;
     conocido[from] = true;
     Trama t;
-    if (leerTrama((const char*)buf, t)) {
+    bool ok = leerTrama((const char*)buf, t);
+    if (ok && strcmp(t.tipo, "MSGP") == 0) {
+      // Parte de un mensaje largo: se emite como un solo MSG cuando llegan todas.
+      if (reensamblador.agregar(from, t.msg, textoLargo, sizeof(textoLargo))) {
+        strcpy(t.tipo, "MSG");
+        strncpy(t.msg, "", sizeof(t.msg));
+        emitirJsonTexto(from, t, textoLargo, radio.lastRssi());
+      }
+    } else if (ok) {
       emitirJson(from, t, radio.lastRssi());
     } else {
       Serial.printf("[gateway] trama no reconocida de %d: %s\n", from, (const char*)buf);
@@ -115,7 +134,7 @@ void loop() {
     if (c == '\n') {
       procesarLineaPc(lineaPc);
       lineaPc = "";
-    } else if (c != '\r' && lineaPc.length() < 256) {
+    } else if (c != '\r' && lineaPc.length() < 512) {
       lineaPc += c;
     }
   }

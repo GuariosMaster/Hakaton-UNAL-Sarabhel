@@ -1,7 +1,7 @@
 // Estado del modo Mando: conexión con el servidor local del puesto de mando.
 import { create } from "zustand";
 import {
-  ServerClient, type ServerAlert, type ServerMessage, type ServerNode,
+  ServerClient, type AlertState, type ServerAlert, type ServerMessage, type ServerNode,
 } from "../lib/server";
 import { load, save } from "../lib/util";
 
@@ -12,6 +12,7 @@ interface CommandState {
   status: Status;
   error?: string;
   tileUrl?: string;
+  energyKit?: { battery_wh: number; consumption_w: number; dod: number; low_pct: number };
   nodes: Record<string, ServerNode>;
   messages: ServerMessage[];
   alerts: ServerAlert[];
@@ -19,6 +20,7 @@ interface CommandState {
   connect: (url: string) => Promise<void>;
   disconnect: () => void;
   send: (text: string, to?: string | null) => Promise<void>;
+  updateAlert: (id: number, changes: { estado?: AlertState; equipo?: string; nota?: string }) => Promise<void>;
 }
 
 // 192.168.137.1 es la IP del portátil cuando comparte su Wi-Fi como zona con cobertura en Windows.
@@ -39,16 +41,12 @@ export const useCommand = create<CommandState>()((set) => ({
     client = new ServerClient(url);
     set({ url, status: "conectando", error: undefined });
     try {
-      const [cfg, nodes, messages, zones] = await Promise.all([
-        client.config(), client.nodes(), client.messages(150), client.zones(),
+      const [cfg, nodes, messages, zones, alerts] = await Promise.all([
+        client.config(), client.nodes(), client.messages(150), client.zones(), client.alerts(100),
       ]);
-      const alerts: ServerAlert[] = messages
-        .filter((m) => m.priority === "critico" && m.direction === "in")
-        .slice(0, 30)
-        .map((m) => ({ type: "mensaje_critico", from_node: m.from_node, long_name: m.long_name,
-                       text: m.text, lat: m.lat, lon: m.lon, ts: m.ts }));
       set({
         tileUrl: cfg.tile_url,
+        energyKit: cfg.energy,
         nodes: Object.fromEntries(nodes.map((n) => [n.node_id, n])),
         messages,
         alerts,
@@ -68,12 +66,16 @@ export const useCommand = create<CommandState>()((set) => ({
             },
           })),
         alert: (a) =>
-          set((s) => ({
-            alerts: [a, ...s.alerts].slice(0, 50),
-            nodes: a.type === "mensaje_critico"
-              ? { ...s.nodes, [a.from_node]: { ...s.nodes[a.from_node], node_id: a.from_node, alert_ts: a.ts } }
-              : s.nodes,
-          })),
+          set((s) => {
+            const node = a.from_node ?? a.node_id;
+            return {
+              alerts: [a, ...s.alerts.filter((x) => x.id !== a.id)].slice(0, 100),
+              nodes: a.type === "mensaje_critico" && node
+                ? { ...s.nodes, [node]: { ...s.nodes[node], node_id: node, alert_ts: a.ts } }
+                : s.nodes,
+            };
+          }),
+        alert_update: (a) => set((s) => ({ alerts: s.alerts.map((x) => (x.id === a.id ? { ...x, ...a } : x)) })),
       });
     } catch (e) {
       client = undefined;
@@ -86,6 +88,12 @@ export const useCommand = create<CommandState>()((set) => ({
     closeStream = undefined;
     client = undefined;
     set({ status: "desconectado" });
+  },
+
+  updateAlert: async (id, changes) => {
+    if (!client) throw new Error("No hay conexión con el servidor");
+    const row = await client.updateAlert(id, changes);
+    set((s) => ({ alerts: s.alerts.map((x) => (x.id === row.id ? { ...x, ...row } : x)) }));
   },
 
   send: async (text, to) => {

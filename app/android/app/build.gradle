@@ -16,7 +16,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Clave de PRUEBAS fija y versionada en el repositorio: así todos los APK (locales y de
+    // GitHub Actions) tienen la misma firma y se actualizan encima sin desinstalar.
+    // No sirve para publicar en Google Play: para eso se crea una clave privada aparte.
+    signingConfigs {
+        pruebas {
+            storeFile file("keystore/pruebas.keystore")
+            storePassword "android"
+            keyAlias "redemergencia"
+            keyPassword "android"
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.pruebas
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

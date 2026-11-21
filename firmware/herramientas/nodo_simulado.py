@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 FIRMWARE = Path(__file__).resolve().parent.parent
-MAX_TEXTO = 36
+MAX_TEXTO = 120  # MAX_TEXTO_LARGO del firmware (se fragmenta en tramas de 36)
 
 
 def portal_html() -> str:

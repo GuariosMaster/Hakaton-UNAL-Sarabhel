@@ -2,7 +2,7 @@
 
 Radio -> broker: cada línea JSON del gateway se publica en red/albergue/{nodo}/{msg|tel|pos|info}.
 Broker -> radio: lo que llega a red/tx/msg se escribe en el gateway para transmitirlo.
-Con MESH_CONNECTION=sim se simulan nodos de albergue (demo sin hardware).
+Con MESH_CONNECTION=sim se simulan nodos de albergue; con escenario, un sismo guionizado (DEMO.md).
 """
 import queue
 import threading
@@ -79,10 +79,13 @@ def main() -> None:
     if config.MESH_CONNECTION == "sim":
         from .simulator import Simulator
         link: Any = Simulator(bus)
+    elif config.MESH_CONNECTION == "escenario":
+        from .simulator import Escenario
+        link = Escenario(bus)
     elif config.MESH_CONNECTION == "usb":
         link = UsbGateway(bus)
     else:
-        raise SystemExit(f"MESH_CONNECTION desconocido: {config.MESH_CONNECTION} (usa sim o usb)")
+        raise SystemExit(f"MESH_CONNECTION desconocido: {config.MESH_CONNECTION} (usa sim, escenario o usb)")
 
     # Los envíos van en un hilo propio para no bloquear el hilo de red MQTT.
     outbox: queue.Queue = queue.Queue(maxsize=100)
