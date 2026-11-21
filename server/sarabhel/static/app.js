@@ -406,6 +406,8 @@ async function main() {
 // ---------- inicio de sesión y usuarios ----------
 function showLogin(message) {
   $("login").hidden = false;
+  fetch("/api/auth/estado").then((r) => r.json())
+    .then((e) => { $("login-hint").hidden = !e.admin_inicial; }).catch(() => {});
   $("login-error").textContent = message || "";
   $("login-error").hidden = !message;
   try { $("login-user").value = localStorage.getItem("ultimoUsuario") || ""; } catch (_) { /* nada */ }

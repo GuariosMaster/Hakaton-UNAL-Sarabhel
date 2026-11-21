@@ -214,10 +214,47 @@ class Auth:
         finally:
             conn.close()
 
+    # --- registro propio ------------------------------------------------------
+    def register(self, usuario: str, nombre: str, pin: str, equipo: str | None) -> dict:
+        """Cualquier persona crea su cuenta y entra de una vez. Siempre como socorrista: los
+        roles de puesto de mando y administrador solo los da un administrador."""
+        if not config.REGISTRATION_OPEN:
+            raise AuthError(403, "El registro está cerrado: pide una cuenta al administrador")
+        usuario = (usuario or "").strip().lower()
+        self._validate(usuario=usuario, pin=pin)
+        self._check_strong(pin)
+        if not (nombre or "").strip():
+            raise AuthError(400, "Escribe tu nombre")
+        conn = self._conn()
+        try:
+            with conn:
+                try:
+                    self._insert(conn, usuario, nombre.strip(), "socorrista", (equipo or "").strip() or None,
+                                 pin, inicial=False)
+                except sqlite3.IntegrityError:
+                    raise AuthError(409, f"El usuario '{usuario}' ya existe; elige otro o entra con tu PIN")
+        finally:
+            conn.close()
+        log.info("Cuenta nueva registrada: %s", usuario)
+        return self.login(usuario, pin)
+
+    def status(self) -> dict:
+        """Lo que la pantalla de entrada necesita saber antes de iniciar sesión."""
+        conn = self._conn()
+        try:
+            admin = conn.execute("SELECT pin_inicial FROM users WHERE usuario = 'admin' AND activo = 1").fetchone()
+        finally:
+            conn.close()
+        return {"registro": config.REGISTRATION_OPEN, "admin_inicial": bool(admin and admin["pin_inicial"])}
+
+    @staticmethod
+    def _check_strong(pin: str) -> None:
+        if pin in ("0000", "1234", "1111", "4321", "1212") or len(set(pin)) == 1:
+            raise AuthError(400, "Elige un PIN menos obvio (no 0000, 1234, 1111…)")
+
     def change_own_pin(self, usuario: str, actual: str, nuevo: str) -> None:
         self._validate(pin=nuevo)
-        if nuevo in ("0000", "1234", "1111") or len(set(nuevo)) == 1:
-            raise AuthError(400, "Elige un PIN menos obvio")
+        self._check_strong(nuevo)
         conn = self._conn()
         try:
             row = conn.execute("SELECT * FROM users WHERE usuario = ?", (usuario,)).fetchone()

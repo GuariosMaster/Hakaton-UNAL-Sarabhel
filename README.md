@@ -28,8 +28,9 @@ El resultado buscado no es solo que los nodos se hablen: es que esa información
 ## Usuarios y roles
 
 Inicio de sesión con **usuario único + PIN de 4 dígitos** y tres roles: **administrador**, **puesto de
-mando** y **socorrista**. Pedir ayuda (SOS) nunca exige cuenta. Primer uso: usuario `admin`, PIN `1234`
-(se pide cambiarlo). Detalles en [USUARIOS.md](USUARIOS.md).
+mando** y **socorrista**. Cada persona **crea su cuenta desde la app** (queda como socorrista; el
+administrador da los demás roles). Pedir ayuda (SOS) nunca exige cuenta. Primer uso del sistema: usuario
+`admin`, PIN `1234` (se pide cambiarlo). Detalles en [USUARIOS.md](USUARIOS.md).
 
 ## Demo para la presentación
 

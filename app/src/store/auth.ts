@@ -31,6 +31,8 @@ interface AuthState {
   serverUrl: string;
   lastUser: string;
   login: (usuario: string, pin: string, serverUrl: string) => Promise<Session>;
+  /** Crear cuenta propia (rol socorrista) en el servidor del puesto de mando y entrar. */
+  register: (data: { usuario: string; nombre: string; pin: string; equipo?: string }, serverUrl: string) => Promise<Session>;
   enterAsGuest: () => void;
   logout: () => Promise<void>;
   changePin: (actual: string, nuevo: string) => Promise<void>;
@@ -100,6 +102,24 @@ export const useAuth = create<AuthState>()((set, get) => ({
     }
     save("sesion", session);
     set({ session, guest: false });
+    return session;
+  },
+
+  register: async (data, serverUrl) => {
+    const usuario = data.usuario.trim().toLowerCase();
+    save("servidor.url", serverUrl);
+    let r;
+    try {
+      r = await new ServerClient(serverUrl).register({ ...data, usuario, equipo: data.equipo?.trim() || null });
+    } catch (e) {
+      if (e instanceof HttpError) throw e;
+      throw new Error("No hay conexión con el puesto de mando. Para crear tu cuenta conéctate a su Wi‑Fi.");
+    }
+    await cacheCredential(r, data.pin); // así después puede entrar sin conexión
+    const session: Session = { ...r, serverUrl, offline: false };
+    save("ultimoUsuario", usuario);
+    save("sesion", session);
+    set({ session, guest: false, serverUrl, lastUser: usuario });
     return session;
   },
 

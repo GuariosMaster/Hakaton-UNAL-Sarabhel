@@ -131,9 +131,28 @@ class UserUpdate(BaseModel):
     pin: str | None = Field(default=None, pattern=r"^\d{4}$")
 
 
+class RegisterRequest(BaseModel):
+    usuario: str = Field(min_length=3, max_length=20)
+    nombre: str = Field(min_length=1, max_length=40)
+    pin: str = Field(pattern=r"^\d{4}$")
+    equipo: str | None = Field(default=None, max_length=60)
+
+
 @app.post("/api/auth/login")
 def login(req: LoginRequest):
     return get_auth().login(req.usuario, req.pin)
+
+
+@app.post("/api/auth/registro", status_code=201)
+def register(req: RegisterRequest):
+    """Crear cuenta propia (rol socorrista) y entrar de una vez."""
+    return get_auth().register(req.usuario, req.nombre, req.pin, req.equipo)
+
+
+@app.get("/api/auth/estado")
+def auth_status():
+    """Pública: si el registro está abierto y si el admin sigue con el PIN inicial (primer uso)."""
+    return get_auth().status()
 
 
 @app.get("/api/auth/me")

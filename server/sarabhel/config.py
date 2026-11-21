@@ -43,6 +43,8 @@ MAP_CENTER = (5.0689, -75.5174)  # Manizales
 
 # PIN inicial del usuario "admin" que se crea la primera vez (hay que cambiarlo al entrar).
 ADMIN_PIN = _env("ADMIN_PIN", "1234")
+# Registro propio desde la app (las cuentas nuevas son de socorrista). 0 = solo el admin crea cuentas.
+REGISTRATION_OPEN = _env("REGISTRATION_OPEN", "1") not in ("0", "false", "no")
 
 # Página de descarga de la app (carpeta web/ del repositorio) y carpeta con el APK.
 WEB_DIR = _env("WEB_DIR", str(BASE_DIR.parent / "web"))

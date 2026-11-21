@@ -13,15 +13,26 @@ Cada persona entra con un **usuario único** y un **PIN de 4 dígitos**, en la a
 
 El portal Wi‑Fi de cada nodo de albergue sigue siendo abierto, por la misma razón.
 
-## Primer uso
+## Cómo se obtiene una cuenta
+
+**Cada persona crea la suya desde la app**: pantalla de inicio → **Crear cuenta** → nombre, usuario
+(se sugiere a partir del nombre), PIN de 4 dígitos repetido y equipo opcional → entra de inmediato.
+
+- Las cuentas creadas así son siempre de **socorrista**: nadie puede darse a sí mismo permisos de
+  puesto de mando o administrador. El administrador sube el rol de quien lo necesite.
+- Para crear la cuenta el teléfono debe estar conectado al **Wi‑Fi del puesto de mando** (la pantalla
+  de inicio muestra si lo encuentra). Después ya puede entrar sin conexión.
+- El administrador puede cerrar el registro con `REGISTRATION_OPEN=0`; entonces solo él crea cuentas.
+
+## Primer uso del sistema
 
 1. Al iniciar el servidor por primera vez se crea el usuario **`admin` con PIN `1234`**
-   (o el valor de la variable `ADMIN_PIN`).
+   (o el valor de la variable `ADMIN_PIN`). Mientras no se cambie, la pantalla de inicio lo recuerda.
 2. Entrar con ese usuario → la app/dashboard pide **cambiar el PIN**.
-3. Crear los usuarios del equipo (dashboard: **👥 Usuarios**; app: **Ajustes → Administrar usuarios**)
-   con un PIN inicial. Cada persona lo cambia al entrar por primera vez.
-4. A los socorristas asignarles un **equipo** (p. ej. “Bomberos 2”): es lo que conecta las alertas que
-   asigna el puesto de mando con su pestaña *Asignadas*.
+3. Dar el rol **Puesto de mando** a quienes coordinan (dashboard: **👥 Usuarios**; app: **Ajustes →
+   Administrar usuarios**). También se pueden crear cuentas allí con un PIN inicial.
+4. A los socorristas asignarles un **equipo** (p. ej. “Bomberos 2”) si no lo pusieron al registrarse:
+   es lo que conecta las alertas que asigna el puesto de mando con su pestaña *Asignadas*.
 
 ## Seguridad del PIN
 
@@ -45,6 +56,8 @@ mensajes y mapa; *Asignadas* y la administración necesitan volver a entrar con 
 | Método | Ruta | Rol |
 |---|---|---|
 | POST | `/api/auth/login` `{usuario, pin}` → `{token, rol, …}` | público |
+| POST | `/api/auth/registro` `{usuario, nombre, pin, equipo?}` → crea un socorrista y entra | público (si el registro está abierto) |
+| GET | `/api/auth/estado` → `{registro, admin_inicial}` | público |
 | GET | `/api/auth/me` · POST `/api/auth/logout` · POST `/api/auth/pin` `{actual, nuevo}` | cualquiera |
 | GET/POST | `/api/users` · PATCH/DELETE `/api/users/{usuario}` | admin |
 | PATCH | `/api/alerts/{id}` | mando/admin; socorrista solo estado y nota de las alertas de su equipo |

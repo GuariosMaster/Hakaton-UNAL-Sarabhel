@@ -243,3 +243,17 @@ main { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: 
 .acciones { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 button.mini, select.mini { padding: 4px 9px; font-size: 13px; width: auto; border-radius: 8px; }
 .muted b { color: var(--text); }
+
+/* ---------- entrar / crear cuenta ---------- */
+.segmented { display: grid; grid-template-columns: 1fr 1fr; background: var(--bg); border-radius: 10px; padding: 3px; gap: 3px; }
+.segmented button { border: 0; background: transparent; padding: 9px; border-radius: 8px; font-weight: 600; color: var(--muted); }
+.segmented button.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .15); }
+.hint { background: var(--mine); border-radius: 10px; padding: 10px 12px; font-size: 14px; margin: 0; }
+.register { display: flex; flex-direction: column; gap: 10px; }
+.register .row { align-items: flex-start; }
+.small-print { font-size: 12px; margin: 0; }
+.server-line { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.server-line .muted { flex: 1; font-size: 13px; }
+.server-line .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--off); flex: none; }
+.server-line .dot.ok { background: var(--ok); }
+.server-line .dot.off { background: var(--crit); }

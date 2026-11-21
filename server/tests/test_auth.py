@@ -79,3 +79,26 @@ def test_cambiar_pin_y_desactivar(client):
     assert client.get("/api/auth/me", headers=pepe).status_code == 401      # su sesión se cerró
     assert client.patch("/api/users/admin", headers=admin, json={"activo": False}).status_code == 400
     assert client.delete("/api/users/admin", headers=admin).status_code == 400
+
+
+def test_registro_propio(client):
+    assert client.get("/api/auth/estado").json() == {"registro": True, "admin_inicial": True}
+    r = client.post("/api/auth/registro", json={"usuario": "Maria.G", "nombre": "María", "pin": "7350",
+                                                "equipo": "Cruz Roja 1"})
+    assert r.status_code == 201, r.text
+    d = r.json()
+    assert d["usuario"] == "maria.g" and d["rol"] == "socorrista" and d["token"] and d["pin_inicial"] == 0
+    # Ya puede entrar y usar la red, pero no administrar
+    h = {"Authorization": f"Bearer {d['token']}"}
+    assert client.get("/api/nodes", headers=h).status_code == 200
+    assert client.get("/api/users", headers=h).status_code == 403
+    # Usuario repetido, PIN obvio y usuario inválido
+    assert client.post("/api/auth/registro", json={"usuario": "maria.g", "nombre": "x", "pin": "7351"}).status_code == 409
+    assert client.post("/api/auth/registro", json={"usuario": "pepe", "nombre": "x", "pin": "1234"}).status_code == 400
+    assert client.post("/api/auth/registro", json={"usuario": "pe pe", "nombre": "x", "pin": "7351"}).status_code == 400
+
+
+def test_registro_cerrado(client, monkeypatch):
+    monkeypatch.setattr(config, "REGISTRATION_OPEN", False)
+    r = client.post("/api/auth/registro", json={"usuario": "pepe", "nombre": "Pepe", "pin": "7351"})
+    assert r.status_code == 403

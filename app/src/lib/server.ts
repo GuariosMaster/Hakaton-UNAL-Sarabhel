@@ -134,6 +134,10 @@ export class ServerClient {
   login(usuario: string, pin: string) {
     return this.req<LoginResult>("POST", "/api/auth/login", { usuario, pin }, 6000);
   }
+  register(u: { usuario: string; nombre: string; pin: string; equipo?: string | null }) {
+    return this.req<LoginResult>("POST", "/api/auth/registro", u, 8000);
+  }
+  authStatus() { return this.req<{ registro: boolean; admin_inicial: boolean }>("GET", "/api/auth/estado", undefined, 4000); }
   logout() { return this.req<{ status: string }>("POST", "/api/auth/logout"); }
   me() { return this.req<UserInfo>("GET", "/api/auth/me"); }
   changePin(actual: string, nuevo: string) {

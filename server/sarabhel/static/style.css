@@ -125,3 +125,6 @@ button.mini { padding: 3px 8px; font-size: 12px; background: var(--panel); color
 button.link { background: none; border: 0; color: var(--info); padding: 2px 4px; cursor: pointer; font: inherit; }
 .tools [hidden], #send-form[hidden] { display: none !important; }
 @media (max-width: 800px) { .user-box #user-name { display: none; } }
+
+.login-hint { background: rgba(37, 99, 235, .12); border-radius: 8px; padding: 8px 10px; font-size: 13px; margin: 0; text-align: left; }
+.login-card .small { font-size: 12px; margin: 0; }
