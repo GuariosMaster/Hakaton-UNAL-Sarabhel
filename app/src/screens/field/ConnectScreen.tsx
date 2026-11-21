@@ -1,25 +1,31 @@
 import { useState } from "react";
+import type { MeshNode } from "../../lib/mesh";
 import { ago } from "../../lib/util";
 import { useField } from "../../store/field";
 
 const STATUS_LABEL = {
   desconectado: "Desconectado",
   conectando: "Conectando…",
-  configurando: "Sincronizando con el nodo…",
+  configurando: "Sincronizando…",
   conectado: "Conectado",
 } as const;
 
 const KIND_LABEL = {
-  bluetooth: "Nodo por Bluetooth",
-  "red-local": "Red local (Wi‑Fi del puesto de mando)",
+  albergue: "Wi‑Fi del albergue",
+  "red-local": "Wi‑Fi del puesto de mando",
   simulador: "Modo demostración",
 } as const;
 
-/** Tarjeta para conectar: nodo LoRa por Bluetooth, red local por Wi-Fi o modo demostración. */
+type Form = "albergue" | "red-local" | null;
+
+/** Conexión del modo Campo: nodo de albergue (Wi-Fi del ESP32), puesto de mando o demo. */
 export function ConnectCard({ compact = false }: { compact?: boolean }) {
-  const { status, detail, kind, connect, disconnect, serverUrl, deviceName, setLanSettings } = useField();
+  const {
+    status, detail, kind, connect, disconnect, nodeUrl, setNodeUrl, serverUrl, deviceName, setLanSettings,
+  } = useField();
   const busy = status === "conectando" || status === "configurando";
-  const [showLan, setShowLan] = useState(false);
+  const [form, setForm] = useState<Form>(null);
+  const [node, setNode] = useState(nodeUrl);
   const [url, setUrl] = useState(serverUrl);
   const [name, setName] = useState(deviceName);
 
@@ -28,6 +34,7 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
       <div className="card">
         <p><b>{STATUS_LABEL[status]}</b> · {KIND_LABEL[kind]}</p>
         {kind === "red-local" && <p className="muted">Como “{deviceName}” en {serverUrl}</p>}
+        {kind === "albergue" && <p className="muted">Nodo en {nodeUrl}</p>}
         <button type="button" onClick={() => void disconnect()}>Desconectar</button>
       </div>
     );
@@ -35,30 +42,51 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
 
   return (
     <div className={`card ${compact ? "warn" : ""}`}>
-      <p><b>{busy ? (detail && kind === "red-local" ? detail : STATUS_LABEL[status]) : "Conecta tu nodo LoRa"}</b></p>
+      <p><b>{busy ? (detail ?? STATUS_LABEL[status]) : "Conéctate a la red de emergencia"}</b></p>
       {!compact && (
         <p className="muted">
-          Enciende tu dispositivo y activa el Bluetooth del teléfono. No se necesita internet ni señal celular.
+          Conecta el teléfono a la red Wi‑Fi <b>“Emergencia …”</b> del albergue más cercano. No necesita internet
+          ni señal celular: el nodo envía tu mensaje por radio al puesto de mando.
         </p>
       )}
       {detail && status === "desconectado" && detail !== "usuario" && <p className="error">{detail}</p>}
+      <button type="button" className="primary" disabled={busy}
+              onClick={() => (form === "albergue" ? void connect("albergue") : setForm("albergue"))}>
+        📡 Wi‑Fi del albergue
+      </button>
       <div className="row">
-        <button type="button" className="primary" disabled={busy} onClick={() => void connect("bluetooth")}>
-          🔵 Bluetooth
+        <button type="button" disabled={busy} onClick={() => setForm(form === "red-local" ? null : "red-local")}>
+          🖥️ Puesto de mando
         </button>
-        <button type="button" disabled={busy} onClick={() => setShowLan((v) => !v)}>📶 Red local</button>
+        <button type="button" disabled={busy} onClick={() => void connect("simulador")}>🧪 Demo</button>
       </div>
-      <button type="button" disabled={busy} onClick={() => void connect("simulador")}>🧪 Modo demo</button>
 
-      {showLan && (
+      {form === "albergue" && (
+        <form className="lan-form" onSubmit={(e) => {
+          e.preventDefault();
+          setNodeUrl(node.trim() || "http://192.168.4.1");
+          void connect("albergue");
+        }}>
+          <p className="muted">
+            1. Abre Ajustes → Wi‑Fi y conéctate a <b>“Emergencia …”</b>.<br />
+            2. Si Android avisa “sin internet”, elige <b>mantener conexión</b>, o apaga los datos móviles.
+          </p>
+          <label>Dirección del nodo
+            <input value={node} onChange={(e) => setNode(e.target.value)} inputMode="url" autoCapitalize="off" />
+          </label>
+          <button type="submit" className="primary" disabled={busy}>Conectar al nodo</button>
+        </form>
+      )}
+
+      {form === "red-local" && (
         <form className="lan-form" onSubmit={(e) => {
           e.preventDefault();
           setLanSettings(url.trim(), name.trim() || deviceName);
           void connect("red-local");
         }}>
           <p className="muted">
-            Conéctate al Wi‑Fi del puesto de mando. Tus mensajes llegan a los demás teléfonos y al puesto de mando
-            a través del servidor (útil para probar sin nodos LoRa).
+            Si estás en el puesto de mando, conéctate a su Wi‑Fi. Tus mensajes llegan al servidor, a los demás
+            teléfonos y a los albergues por radio. También sirve para probar la app entre teléfonos sin nodos.
           </p>
           <label>Tu nombre en la red
             <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required />
@@ -66,15 +94,22 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
           <label>Servidor
             <input value={url} onChange={(e) => setUrl(e.target.value)} inputMode="url" autoCapitalize="off" required />
           </label>
-          <button type="submit" className="primary" disabled={busy}>Conectar por Wi‑Fi</button>
+          <button type="submit" className="primary" disabled={busy}>Conectar al puesto de mando</button>
         </form>
       )}
     </div>
   );
 }
 
+function energyLine(n: MeshNode) {
+  const parts: string[] = [];
+  if (n.battery != null) parts.push(`🔋 ${n.battery}%${n.voltage != null ? ` (${n.voltage.toFixed(1)} V)` : ""}`);
+  if (n.panelV != null) parts.push(n.panelV > 1 ? `☀️ ${n.panelV.toFixed(1)} V` : "🌙 sin sol");
+  return parts.join(" · ") || "🔋 —";
+}
+
 export function ConnectScreen({ onChangeMode }: { onChangeMode: () => void }) {
-  const { nodes, myNum } = useField();
+  const { nodes, myNum, kind } = useField();
   const list = Object.values(nodes).sort((a, b) => (b.lastHeard ?? 0) - (a.lastHeard ?? 0));
   const me = myNum != null ? nodes[myNum] : undefined;
 
@@ -83,8 +118,8 @@ export function ConnectScreen({ onChangeMode }: { onChangeMode: () => void }) {
       <ConnectCard />
       {me && (
         <div className="card">
-          <p><b>Mi nodo:</b> {me.longName ?? me.id}</p>
-          <p className="muted">{me.id}{me.battery != null ? ` · Batería ${me.battery}%` : ""}</p>
+          <p><b>{kind === "red-local" ? "Este teléfono" : "Nodo del albergue"}:</b> {me.longName ?? me.id}</p>
+          {kind !== "red-local" && <p className="muted">{energyLine(me)}</p>}
         </div>
       )}
 
@@ -93,12 +128,12 @@ export function ConnectScreen({ onChangeMode }: { onChangeMode: () => void }) {
         {list.map((n) => (
           <li key={n.num}>
             <div className="meta">
-              <b>{n.longName ?? n.id}{n.num === myNum ? " (yo)" : ""}</b>
+              <b>{n.longName ?? n.id}{n.num === myNum ? " (este)" : ""}</b>
               <span>{ago(n.lastHeard)}</span>
             </div>
             <div className="meta">
-              <span>{n.battery != null ? `🔋 ${n.battery}%` : "🔋 —"}</span>
-              <span>{n.lat != null ? `📍 ${ago(n.posTime)}` : "📍 sin GPS"}</span>
+              <span>{energyLine(n)}</span>
+              <span>{n.lat != null ? `📍 ${ago(n.posTime)}` : "📍 —"}</span>
             </div>
           </li>
         ))}

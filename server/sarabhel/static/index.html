@@ -9,7 +9,7 @@
 </head>
 <body>
   <header>
-    <h1>Puesto de mando <span>· red de emergencia LoRa</span></h1>
+    <h1>Puesto de mando <span>· red de emergencia FSK 915 MHz</span></h1>
     <div class="status"><span id="conn-dot" class="dot"></span><span id="conn-text">Conectando…</span></div>
   </header>
 
@@ -21,6 +21,12 @@
         <h2>Alertas <span id="alert-count" class="count">0</span></h2>
         <ul id="alerts" class="list"></ul>
         <p class="empty" id="alerts-empty">Sin alertas críticas.</p>
+      </section>
+
+      <section>
+        <h2>Energía <span id="energy-count" class="count">0</span></h2>
+        <ul id="energy" class="list"></ul>
+        <p class="empty" id="energy-empty">Sin telemetría de energía todavía.</p>
       </section>
 
       <section>

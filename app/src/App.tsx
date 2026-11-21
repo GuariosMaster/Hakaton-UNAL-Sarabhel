@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { BottomNav, Header, Pill, type Tab } from "./components/ui";
 import {
-  CommandAlertsScreen, CommandChatScreen, CommandMapScreen, CommandSettingsScreen, type Focus,
+  CommandAlertsScreen, CommandChatScreen, CommandEnergyScreen, CommandMapScreen, CommandSettingsScreen, type Focus,
 } from "./screens/command/CommandScreens";
 import { FieldChatScreen } from "./screens/field/ChatScreen";
 import { ConnectScreen } from "./screens/field/ConnectScreen";
@@ -29,12 +29,12 @@ function ModeSelect({ onChoose }: { onChoose: (m: Mode) => void }) {
     <div className="mode-select">
       <div className="brand">
         <div className="logo">📡</div>
-        <h1>Red de Emergencia LoRa</h1>
+        <h1>Red de Emergencia</h1>
         <p className="muted">Comunicación sin internet ni señal celular</p>
       </div>
       <button type="button" className="mode-card" onClick={() => onChoose("campo")}>
         <span className="icon">🧑‍🚒</span>
-        <span><b>Estoy en campo</b><br /><small>Conecto mi nodo LoRa por Bluetooth para pedir ayuda y enviar mensajes</small></span>
+        <span><b>Estoy en campo</b><br /><small>Me conecto al Wi‑Fi del albergue para pedir ayuda y enviar reportes por radio</small></span>
       </button>
       <button type="button" className="mode-card" onClick={() => onChoose("mando")}>
         <span className="icon">🗺️</span>
@@ -52,8 +52,8 @@ function FieldApp({ onChangeMode }: { onChangeMode: () => void }) {
   const me = myNum != null ? nodes[myNum] : undefined;
   const tone = status === "conectado" ? "ok" : status === "desconectado" ? "off" : "warn";
   const label = status === "conectado"
-    ? `${kind === "simulador" ? "Demo" : kind === "red-local" ? "Wi‑Fi" : me?.shortName ?? "Nodo"}${me?.battery != null ? ` · ${me.battery}%` : ""}`
-    : status === "desconectado" ? "Sin nodo" : "Conectando…";
+    ? `${kind === "simulador" ? "Demo" : kind === "red-local" ? "Puesto" : me?.shortName ?? "Albergue"}${kind !== "red-local" && me?.battery != null ? ` · 🔋${me.battery}%` : ""}`
+    : status === "desconectado" ? "Sin conexión" : "Conectando…";
 
   const tabs: Tab<FieldTab>[] = [
     { id: "sos", label: "SOS", icon: "🆘" },
@@ -77,7 +77,7 @@ function FieldApp({ onChangeMode }: { onChangeMode: () => void }) {
   );
 }
 
-type CommandTab = "alertas" | "mapa" | "chat" | "ajustes";
+type CommandTab = "alertas" | "mapa" | "chat" | "energia" | "ajustes";
 
 function CommandApp({ onChangeMode }: { onChangeMode: () => void }) {
   const { status, alerts, url, connect } = useCommand();
@@ -100,9 +100,10 @@ function CommandApp({ onChangeMode }: { onChangeMode: () => void }) {
     { id: "alertas", label: "Alertas", icon: "🚨", badge: Math.max(0, alerts.length - seen) },
     { id: "mapa", label: "Mapa", icon: "🗺️" },
     { id: "chat", label: "Mensajes", icon: "💬" },
+    { id: "energia", label: "Energía", icon: "🔋" },
     { id: "ajustes", label: "Servidor", icon: "⚙️" },
   ];
-  const titles: Record<CommandTab, string> = { alertas: "Alertas", mapa: "Mapa de la red", chat: "Mensajes", ajustes: "Servidor" };
+  const titles: Record<CommandTab, string> = { alertas: "Alertas", mapa: "Mapa de la red", chat: "Mensajes", energia: "Energía", ajustes: "Servidor" };
 
   return (
     <div className="app">
@@ -117,6 +118,7 @@ function CommandApp({ onChangeMode }: { onChangeMode: () => void }) {
         )}
         {tab === "mapa" && <CommandMapScreen focus={focus} />}
         {tab === "chat" && <CommandChatScreen />}
+        {tab === "energia" && <CommandEnergyScreen />}
         {tab === "ajustes" && <CommandSettingsScreen onChangeMode={onChangeMode} />}
       </main>
       <BottomNav tabs={tabs} active={tab} onChange={setTab} />

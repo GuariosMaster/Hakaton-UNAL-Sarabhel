@@ -1,12 +1,13 @@
-# Override para conectar el Gateway Meshtastic por USB en Linux (Ubuntu).
+# Override para conectar el gateway ESP32-S3 + RFM69HCW por USB en Linux (Ubuntu).
+# El ESP32-S3 con USB nativo aparece como /dev/ttyACM0; con chip CP210x/CH340 como /dev/ttyUSB0.
 # Uso:
-#   MESH_SERIAL_DEVICE=/dev/ttyUSB0 docker compose -f docker-compose.yml -f docker-compose.serial.yml up -d
-# (En Windows/macOS Docker Desktop no puede pasar puertos COM: ejecuta el listener nativo, ver README.)
+#   MESH_USB_DEVICE=/dev/ttyACM0 docker compose -f docker-compose.yml -f docker-compose.serial.yml up -d
+# (En Windows Docker Desktop no puede pasar puertos COM: usa iniciar.ps1 -Radio usb, ver README.)
 
 services:
   listener:
     devices:
-      - "${MESH_SERIAL_DEVICE:-/dev/ttyUSB0}:/dev/ttyMESH"
+      - "${MESH_USB_DEVICE:-/dev/ttyACM0}:/dev/ttyGATEWAY"
     environment:
-      MESH_CONNECTION: serial
-      MESH_SERIAL_PORT: /dev/ttyMESH
+      MESH_CONNECTION: usb
+      MESH_USB_DEVICE: /dev/ttyGATEWAY

@@ -75,7 +75,11 @@ function popupContent(n) {
   const box = el("div");
   box.append(el("b", null, nodeName(n.node_id)), el("br"));
   box.append(el("small", null, n.node_id), el("br"));
-  if (n.battery != null) box.append(`Batería: ${n.battery}%`, el("br"));
+  if (n.battery != null || n.voltage != null) {
+    box.append(`🔋 Batería: ${n.battery ?? "—"}%${n.voltage != null ? ` (${n.voltage.toFixed(2)} V)` : ""}`, el("br"));
+  }
+  if (n.panel_v != null) box.append(`☀️ Panel: ${n.panel_v.toFixed(1)} V`, el("br"));
+  if (n.rssi != null) box.append(`📶 Señal: ${Math.round(n.rssi)} dBm`, el("br"));
   box.append(`Escuchado: ${ago(n.last_heard)}`, el("br"));
   if (n.lat != null) box.append(`Posición: ${n.lat.toFixed(5)}, ${n.lon.toFixed(5)} (${ago(n.pos_ts)})`, el("br"));
   if (n.risk_zone) box.append(el("b", null, `⚠ En zona de riesgo: ${n.risk_zone}`), el("br"));
@@ -143,6 +147,7 @@ function renderNodeList() {
     li.append(meta);
     const info = [];
     if (n.battery != null) info.push(`🔋 ${n.battery}%`);
+    if (n.panel_v != null) info.push(n.panel_v > 1 ? `☀️ ${n.panel_v.toFixed(1)} V` : "🌙 sin sol");
     info.push(n.lat != null ? `📍 ${ago(n.pos_ts)}` : "📍 sin GPS");
     if (n.risk_zone) info.push("⚠ zona de riesgo");
     li.append(el("div", "meta", info.join(" · ")));
@@ -155,6 +160,37 @@ function renderNodeList() {
   }
   select.value = selected;
   $("node-count").textContent = nodes.length;
+  renderEnergy(nodes);
+}
+
+// ---------- energía de los nodos (micro-redes solares) ----------
+function renderEnergy(nodes) {
+  const list = $("energy");
+  const withEnergy = nodes.filter((n) => n.battery != null || n.voltage != null)
+    .sort((a, b) => (a.battery ?? 101) - (b.battery ?? 101));  // los más críticos primero
+  list.replaceChildren();
+  for (const n of withEnergy) {
+    const li = el("li");
+    const pct = n.battery ?? 0;
+    const tone = pct < 20 ? "low" : pct < 50 ? "mid" : "ok";
+    const meta = el("div", "meta");
+    meta.append(el("b", null, nodeName(n.node_id)), el("span", null, ago(n.energy_ts || n.last_heard)));
+    const bar = el("div", `bar ${tone}`);
+    const fill = el("span");
+    fill.style.width = `${Math.max(2, Math.min(100, pct))}%`;
+    bar.append(fill);
+    const detail = el("div", "meta");
+    detail.append(
+      el("span", null, `🔋 ${n.battery ?? "—"}%${n.voltage != null ? ` · ${n.voltage.toFixed(2)} V` : ""}`),
+      el("span", null, n.panel_v != null ? (n.panel_v > 1 ? `☀️ ${n.panel_v.toFixed(1)} V` : "🌙 sin sol") : ""),
+    );
+    li.append(meta, bar, detail);
+    list.append(li);
+  }
+  const low = withEnergy.filter((n) => (n.battery ?? 100) < 20).length;
+  $("energy-count").textContent = low ? `${low} baja${low > 1 ? "s" : ""}` : withEnergy.length;
+  $("energy-count").className = low ? "count warn" : "count";
+  $("energy-empty").hidden = withEnergy.length > 0;
 }
 
 // ---------- mensajes y alertas ----------
@@ -186,9 +222,13 @@ function addMessage(m, prepend = true) {
 function addAlert(a, prepend = true) {
   const li = el("li", "critico clickable");
   const meta = el("div", "meta");
-  const title = a.type === "zona_riesgo" ? "Entró en zona de riesgo" : "Mensaje crítico";
+  const titles = { zona_riesgo: "Entró en zona de riesgo", bateria_baja: "Batería baja", mensaje_critico: "Mensaje crítico" };
+  const title = titles[a.type] || "Alerta";
+  const body = a.type === "zona_riesgo" ? a.zone
+    : a.type === "bateria_baja" ? `Batería al ${a.battery}%${a.voltage != null ? ` (${a.voltage.toFixed(2)} V)` : ""}: revisar el kit de energía`
+    : a.text;
   meta.append(el("b", null, `${title} · ${a.long_name || nodeName(a.from_node)}`), el("span", null, ago(a.ts)));
-  li.append(meta, el("div", "text", a.type === "zona_riesgo" ? a.zone : a.text));
+  li.append(meta, el("div", "text", body));
   li.append(el("div", "meta", a.lat != null ? `📍 ${a.lat.toFixed(5)}, ${a.lon.toFixed(5)}` : "📍 posición desconocida"));
   li.onclick = () => focus(a.lat, a.lon);
   const list = $("alerts");

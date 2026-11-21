@@ -1,10 +1,10 @@
 """Servicio de Localización (GPS).
 
-- mesh/rx/position  : guarda historial y última posición, revisa geocercas de
-                      zonas de riesgo y emite events/position (+ events/alert al
-                      entrar en una zona).
-- mesh/rx/nodeinfo  : nombre del nodo.
-- mesh/rx/telemetry : batería / voltaje.
+- red/albergue/+/pos  : guarda historial y última posición, revisa geocercas de
+                        zonas de riesgo y emite events/position (+ events/alert al
+                        entrar en una zona).
+- red/albergue/+/info : nombre del nodo.
+- red/albergue/+/tel  : energía (batería V, panel V, % de carga) y alerta de batería baja.
 """
 import threading
 
@@ -63,15 +63,30 @@ class LocationService:
         self._emit_node(node)
 
     def on_telemetry(self, _topic: str, p: dict) -> None:
+        """Energía del nodo: voltaje de batería, voltaje del panel y % de carga."""
         node = p.get("from")
         if not node:
             return
+        ts = int(p.get("ts") or db.now())
+        battery = p.get("battery")
         with self.lock, self.conn:
-            db.touch_node(self.conn, node, int(p.get("ts") or db.now()))
+            db.touch_node(self.conn, node, ts)
+            prev = self.conn.execute("SELECT battery, long_name, lat, lon FROM nodes WHERE node_id = ?",
+                                     (node,)).fetchone()
             self.conn.execute(
-                "UPDATE nodes SET battery = COALESCE(?, battery), voltage = COALESCE(?, voltage) "
-                "WHERE node_id = ?", (p.get("battery"), p.get("voltage"), node))
+                """UPDATE nodes SET battery = COALESCE(?, battery), voltage = COALESCE(?, voltage),
+                                    panel_v = COALESCE(?, panel_v), rssi = COALESCE(?, rssi), energy_ts = ?
+                   WHERE node_id = ?""",
+                (battery, p.get("voltage"), p.get("panel_v"), p.get("rssi"), ts, node))
         self._emit_node(node)
+        # Alerta solo al cruzar el umbral, no en cada trama.
+        low = config.LOW_BATTERY_PCT
+        if battery is not None and battery < low and (prev["battery"] is None or prev["battery"] >= low):
+            log.warning("Batería baja en %s: %s%%", node, battery)
+            self.bus.publish(config.EV_ALERT, {"type": "bateria_baja", "from_node": node,
+                                               "long_name": prev["long_name"], "battery": battery,
+                                               "voltage": p.get("voltage"), "lat": prev["lat"],
+                                               "lon": prev["lon"], "ts": ts})
 
     def _emit_node(self, node: str) -> None:
         with self.lock:

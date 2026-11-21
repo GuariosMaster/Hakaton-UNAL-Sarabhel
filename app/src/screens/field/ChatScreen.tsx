@@ -23,7 +23,7 @@ export function FieldChatScreen() {
   return (
     <div className="screen chat">
       <div className="chat-list">
-        {messages.length === 0 && <Empty>Aún no hay mensajes. Lo que llegue por la red LoRa aparecerá aquí.</Empty>}
+        {messages.length === 0 && <Empty>Aún no hay mensajes. Lo que llegue por la red de radio aparecerá aquí.</Empty>}
         {messages.map((m) => (
           <div key={m.key} className={`bubble ${m.mine ? "mine" : ""} ${m.priority}`}>
             <div className="meta">

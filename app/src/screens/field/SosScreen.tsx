@@ -7,7 +7,7 @@ import { ConnectCard } from "./ConnectScreen";
 const HOLD_MS = 1500;
 const STATUS_TEXT = {
   enviando: "Enviando por radio…",
-  "en-red": "✓ Recibido por la red LoRa",
+  "en-red": "✓ Enviado por radio al puesto de mando",
   entregado: "✓ Entregado",
   fallo: "✗ No se pudo enviar",
 } as const;
@@ -78,7 +78,7 @@ export function SosScreen() {
 
       {lastMine && (
         <p className={`send-status ${lastMine.status}`}>
-          {lastMine.text.replace(/ 📍.*/, "")} · {STATUS_TEXT[lastMine.status ?? "enviando"]}
+          {lastMine.text} · {STATUS_TEXT[lastMine.status ?? "enviando"]}
         </p>
       )}
       {error && <p className="error center">{error}</p>}

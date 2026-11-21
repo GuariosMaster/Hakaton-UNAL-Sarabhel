@@ -1,29 +1,18 @@
-import { BleTransport } from "./ble";
+import { AlbergueRadio } from "./albergue";
 import { LanRadio, type LanIdentity } from "./lan";
-import { MeshProtocol } from "./protocol";
 import { SimRadio } from "./sim";
 import type { RadioEvents, RadioLink } from "./types";
 
-class BluetoothRadio implements RadioLink {
-  readonly kind = "bluetooth" as const;
-  private proto: MeshProtocol;
-
-  constructor(events: RadioEvents) {
-    this.proto = new MeshProtocol(new BleTransport(), events);
-  }
-  connect() { return this.proto.start(); }
-  disconnect() { return this.proto.stop(); }
-  sendText(text: string, to?: number) { return this.proto.sendText(text, to); }
-  sendPosition(lat: number, lon: number, alt?: number) { return this.proto.sendPosition(lat, lon, alt); }
-}
-
 export interface RadioOptions {
+  /** Dirección del nodo de albergue en su red Wi-Fi (por defecto http://192.168.4.1). */
+  nodeUrl: string;
+  /** Servidor del puesto de mando y nombre de este teléfono (conexión "red-local"). */
   serverUrl: string;
   identity: LanIdentity;
 }
 
 export function createRadio(kind: RadioLink["kind"], events: RadioEvents, opts: RadioOptions): RadioLink {
-  if (kind === "bluetooth") return new BluetoothRadio(events);
+  if (kind === "albergue") return new AlbergueRadio(events, opts.nodeUrl);
   if (kind === "red-local") return new LanRadio(events, opts.serverUrl, opts.identity);
   return new SimRadio(events);
 }

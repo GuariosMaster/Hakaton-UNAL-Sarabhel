@@ -27,10 +27,11 @@ export function CommandAlertsScreen({ onLocate }: { onLocate: (lat: number, lon:
           <li key={`${a.ts}-${a.from_node}-${i}`} className="critico clickable"
               onClick={() => a.lat != null && a.lon != null && onLocate(a.lat, a.lon)}>
             <div className="meta">
-              <b>{a.type === "zona_riesgo" ? "⚠ Zona de riesgo" : "🆘 Mensaje crítico"}</b>
+              <b>{a.type === "zona_riesgo" ? "⚠ Zona de riesgo" : a.type === "bateria_baja" ? "🪫 Batería baja" : "🆘 Mensaje crítico"}</b>
               <span>{ago(a.ts)}</span>
             </div>
-            <div className="text">{a.type === "zona_riesgo" ? a.zone : a.text}</div>
+            <div className="text">{a.type === "zona_riesgo" ? a.zone
+              : a.type === "bateria_baja" ? `Batería al ${a.battery}%: revisar el kit de energía` : a.text}</div>
             <div className="meta">
               <span>{a.long_name || serverNodeName(nodes, a.from_node)}</span>
               <span>{a.lat != null ? "📍 Ver en mapa" : "📍 sin ubicación"}</span>
@@ -55,13 +56,53 @@ export function CommandMapScreen({ focus }: { focus?: Focus }) {
       popup: [
         n.long_name || n.node_id,
         `Escuchado ${ago(n.last_heard)}`,
-        n.battery != null ? `Batería ${n.battery}%` : "",
+        n.battery != null ? `🔋 Batería ${n.battery}%${n.voltage != null ? ` (${n.voltage.toFixed(1)} V)` : ""}` : "",
+        n.panel_v != null ? (n.panel_v > 1 ? `☀️ Panel ${n.panel_v.toFixed(1)} V` : "🌙 Panel sin sol") : "",
         n.risk_zone ? `⚠ ${n.risk_zone}` : "",
       ].filter(Boolean),
     }));
   return (
     <div className="screen map-screen">
       <MapView markers={markers} zones={zones} tileUrl={tileUrl} focus={focus} />
+    </div>
+  );
+}
+
+/** Energía de cada nodo (micro-redes solares): los más críticos primero. */
+export function CommandEnergyScreen() {
+  const { nodes } = useCommand();
+  const list = Object.values(nodes)
+    .filter((n) => n.battery != null || n.voltage != null)
+    .sort((a, b) => (a.battery ?? 101) - (b.battery ?? 101));
+  const low = list.filter((n) => (n.battery ?? 100) < 20).length;
+  return (
+    <div className="screen">
+      {list.length === 0 && <Empty>Sin telemetría de energía todavía.</Empty>}
+      {list.length > 0 && (
+        <div className={`card ${low ? "warn" : ""}`}>
+          <p><b>{list.length} nodos reportando</b>{low ? ` · ${low} con batería baja` : " · todos con carga suficiente"}</p>
+        </div>
+      )}
+      <ul className="list">
+        {list.map((n) => {
+          const pct = n.battery ?? 0;
+          return (
+            <li key={n.node_id}>
+              <div className="meta">
+                <b>{n.long_name || n.node_id}</b>
+                <span>{ago(n.energy_ts ?? n.last_heard)}</span>
+              </div>
+              <div className={`bar ${pct < 20 ? "low" : pct < 50 ? "mid" : ""}`}>
+                <span style={{ width: `${Math.max(2, Math.min(100, pct))}%` }} />
+              </div>
+              <div className="meta">
+                <span>🔋 {n.battery ?? "—"}%{n.voltage != null ? ` · ${n.voltage.toFixed(2)} V` : ""}</span>
+                <span>{n.panel_v != null ? (n.panel_v > 1 ? `☀️ ${n.panel_v.toFixed(1)} V` : "🌙 sin sol") : ""}</span>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

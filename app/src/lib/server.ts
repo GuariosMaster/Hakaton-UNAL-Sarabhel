@@ -10,6 +10,10 @@ export interface ServerNode {
   lon?: number | null;
   pos_ts?: number | null;
   battery?: number | null;
+  voltage?: number | null;
+  panel_v?: number | null;
+  rssi?: number | null;
+  energy_ts?: number | null;
   last_heard?: number | null;
   risk_zone?: string | null;
   alert_ts?: number | null;
@@ -29,11 +33,13 @@ export interface ServerMessage {
 }
 
 export interface ServerAlert {
-  type: "mensaje_critico" | "zona_riesgo";
+  type: "mensaje_critico" | "zona_riesgo" | "bateria_baja";
   from_node: string;
   long_name?: string | null;
   text?: string;
   zone?: string;
+  battery?: number;
+  voltage?: number | null;
   lat?: number | null;
   lon?: number | null;
   ts: number;
@@ -116,8 +122,9 @@ export class ServerClient {
       { node_id: nodeId, long_name: longName, short_name: shortName });
   }
 
-  deviceText(nodeId: string, text: string, to?: string | null) {
-    return this.post<{ packet_id: number }>("/api/device/text", { node_id: nodeId, text, to: to || null });
+  deviceText(nodeId: string, text: string, to?: string | null, fix?: { lat: number; lon: number }) {
+    return this.post<{ packet_id: number }>("/api/device/text",
+      { node_id: nodeId, text, to: to || null, lat: fix?.lat, lon: fix?.lon });
   }
 
   devicePosition(nodeId: string, lat: number, lon: number, alt?: number) {

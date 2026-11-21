@@ -1,95 +1,94 @@
-"""Simulador de nodos de campo para demos y pruebas sin hardware.
+"""Simulador de nodos de albergue FSK 915 MHz para demos y pruebas sin hardware.
 
-Genera los mismos paquetes que produciría la librería meshtastic y los pasa por
-packet_to_events, así el resto del sistema no distingue simulación de radio real.
-Coordenadas aproximadas alrededor de Manizales; los datos son ficticios.
+Genera las mismas líneas JSON que enviaría el gateway ESP32-S3 por USB y las pasa
+por gateway.parse_line, así el resto del sistema no distingue simulación de radio real.
+La energía sigue el ciclo solar: el panel produce de día y la batería se descarga de noche.
+Coordenadas aproximadas en Manizales; los datos son ficticios.
 """
+import json
 import logging
+import math
 import random
 import time
+from datetime import datetime
 
 from . import config
 from .bus import Bus
+from .gateway import parse_line
 
 log = logging.getLogger("listener.sim")
 
 NODES = [
-    # id, nombre largo, corto, lat, lon
-    ("!5a0b0001", "Albergue Chipre", "CHIP", 5.0745, -75.5260),
-    ("!5a0b0002", "Ladera Aranjuez", "ARAN", 5.0590, -75.4985),
-    ("!5a0b0003", "Brigada La Enea", "ENEA", 5.0315, -75.4630),
-    ("!5a0b0004", "Puesto San José", "SJOS", 5.0700, -75.5195),
-    ("!5a0b0005", "Rescate Palermo", "PALE", 5.0560, -75.4870),
+    # dirección RHMesh, nombre, lat, lon
+    (2, "Albergue Coliseo", 5.0640, -75.4990),
+    (3, "Albergue Chipre", 5.0745, -75.5260),
+    (4, "Ladera Aranjuez", 5.0590, -75.4985),
+    (5, "Brigada La Enea", 5.0315, -75.4630),
+    (6, "Puesto San José", 5.0700, -75.5195),
 ]
 
 MESSAGES = [
-    "SOS hay personas atrapadas bajo escombros",
-    "Tenemos un herido con fractura en la pierna",
-    "Necesitamos agua potable para 30 personas",
-    "Se acabaron los medicamentos en el albergue",
-    "Grieta grande en la vía, evacuando la cuadra",
-    "Todos bien en el punto de encuentro",
-    "Llegamos al albergue, 12 personas",
-    "Derrumbe en la ladera, la carretera está bloqueada",
+    "SOS personas atrapadas en escombros",
+    "Herido con fractura, necesito apoyo",
+    "Necesitamos agua para 30 personas",
+    "Sin medicamentos en el albergue",
+    "Grieta en la via, evacuando",
+    "Todos bien en punto de encuentro",
+    "280 personas en albergue, sin red",
+    "Derrumbe en la ladera, via cerrada",
     "Olor a gas en la calle principal",
-    "Necesitamos cobijas, hace mucho frío",
+    "Necesitamos cobijas, mucho frio",
     "Recibido, quedamos atentos",
 ]
 
 
+def solar_factor(now: datetime) -> float:
+    """0 de noche, 1 al mediodía (aproximación senoidal entre 6:00 y 18:00)."""
+    h = now.hour + now.minute / 60
+    return max(0.0, math.sin(math.pi * (h - 6) / 12)) if 6 <= h <= 18 else 0.0
+
+
 class Simulator:
     def __init__(self, bus: Bus):
-        from .listener import packet_to_events  # import diferido: evita ciclo
-
-        self._to_events = packet_to_events
         self.bus = bus
-        self.state = {n[0]: {"lat": n[3], "lon": n[4], "battery": random.randint(55, 100)} for n in NODES}
-        self.names = {n[0]: (n[1], n[2]) for n in NODES}
-        self._pid = random.randint(1, 10_000)
+        self.state = {
+            n[0]: {"name": n[1], "lat": n[2], "lon": n[3], "carga": random.uniform(45, 95)} for n in NODES
+        }
 
     def run(self) -> None:
-        log.info("Simulando %d nodos cada %.1f s", len(NODES), config.SIM_INTERVAL_SECS)
-        for node_id in self.state:
-            self._emit(node_id, "NODEINFO_APP")
-            self._emit(node_id, "POSITION_APP")
-            self._emit(node_id, "TELEMETRY_APP")
+        log.info("Simulando %d nodos FSK cada %.1f s", len(NODES), config.SIM_INTERVAL_SECS)
+        for addr, st in self.state.items():
+            self._emit({"nodo": addr, "tipo": "INFO", "nombre": st["name"]})
+            self._emit({"nodo": addr, "tipo": "POS", **self._energy(addr), "lat": st["lat"], "lon": st["lon"]})
         while True:
             time.sleep(config.SIM_INTERVAL_SECS)
-            node_id = random.choice(list(self.state))
+            addr = random.choice(list(self.state))
+            st = self.state[addr]
             roll = random.random()
-            if roll < 0.55:
-                st = self.state[node_id]
-                st["lat"] += random.uniform(-0.0012, 0.0012)
-                st["lon"] += random.uniform(-0.0012, 0.0012)
-                self._emit(node_id, "POSITION_APP")
-            elif roll < 0.85:
-                self._emit(node_id, "TEXT_MESSAGE_APP", text=random.choice(MESSAGES))
+            if roll < 0.35:
+                st["lat"] += random.uniform(-0.0008, 0.0008)
+                st["lon"] += random.uniform(-0.0008, 0.0008)
+                self._emit({"nodo": addr, "tipo": "POS", **self._energy(addr),
+                            "lat": round(st["lat"], 6), "lon": round(st["lon"], 6)})
+            elif roll < 0.65:
+                self._emit({"nodo": addr, "tipo": "MSG", **self._energy(addr), "msg": random.choice(MESSAGES)})
             else:
-                st = self.state[node_id]
-                st["battery"] = max(5, st["battery"] - random.randint(0, 3))
-                self._emit(node_id, "TELEMETRY_APP")
+                self._emit({"nodo": addr, "tipo": "TEL", **self._energy(addr)})
 
     def send(self, text: str, to: str | None) -> None:
-        log.info("[sim] transmitido por radio a %s: %s", to or "todos", text)
+        log.info("[sim] transmitido por radio FSK a %s: %s", to or "todos", text)
 
-    def _emit(self, node_id: str, portnum: str, text: str | None = None) -> None:
-        st = self.state[node_id]
-        long_name, short_name = self.names[node_id]
-        decoded: dict = {"portnum": portnum}
-        if portnum == "TEXT_MESSAGE_APP":
-            decoded["text"] = text
-        elif portnum == "POSITION_APP":
-            decoded["position"] = {"latitude": round(st["lat"], 6), "longitude": round(st["lon"], 6),
-                                   "altitude": random.randint(1900, 2300), "satsInView": random.randint(5, 12),
-                                   "time": int(time.time())}
-        elif portnum == "NODEINFO_APP":
-            decoded["user"] = {"id": node_id, "longName": long_name, "shortName": short_name}
-        elif portnum == "TELEMETRY_APP":
-            decoded["telemetry"] = {"deviceMetrics": {"batteryLevel": st["battery"],
-                                                      "voltage": round(3.3 + st["battery"] / 100 * 0.9, 2)}}
-        self._pid += 1
-        packet = {"id": self._pid, "fromId": node_id, "toId": "^all", "channel": 0,
-                  "rxTime": int(time.time()), "rxRssi": random.randint(-120, -70),
-                  "rxSnr": round(random.uniform(-12, 10), 1), "decoded": decoded}
-        for topic, payload in self._to_events(packet):
+    def _energy(self, addr: int) -> dict:
+        st = self.state[addr]
+        sun = solar_factor(datetime.now())
+        # De día el panel carga la batería; de noche el nodo la descarga.
+        # Ritmo comprimido para la demo: unas décimas de % por trama (no horas reales).
+        st["carga"] = min(100.0, max(3.0, st["carga"] + (sun * 0.25 - 0.06) * random.uniform(0.5, 1.5)))
+        panel = round(sun * random.uniform(17.0, 19.5), 1)
+        bat = round(12.0 + st["carga"] / 100 * 1.6, 2)  # LiFePO4 4S: ~12,0 V vacía, ~13,6 V llena
+        return {"bat": bat, "panel": panel, "carga": int(st["carga"])}
+
+    def _emit(self, frame: dict) -> None:
+        frame["rssi"] = random.randint(-105, -60)
+        for topic, payload in parse_line(json.dumps(frame, ensure_ascii=False)):
             self.bus.publish(topic, payload)

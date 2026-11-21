@@ -83,7 +83,7 @@ class SendRequest(BaseModel):
         if not v:
             raise ValueError("El mensaje está vacío")
         if len(v.encode("utf-8")) > config.MAX_TEXT_BYTES:
-            raise ValueError(f"Máximo {config.MAX_TEXT_BYTES} bytes por mensaje LoRa")
+            raise ValueError(f"Máximo {config.MAX_TEXT_BYTES} bytes por mensaje de radio")
         return v
 
 
@@ -98,6 +98,9 @@ class DeviceHello(BaseModel):
 
 class DeviceText(SendRequest):
     node_id: str = Field(pattern=NODE_ID)
+    # Ubicación GPS del teléfono al enviar (SOS); va aparte para no gastar bytes del texto.
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lon: float | None = Field(default=None, ge=-180, le=180)
 
 
 class DevicePosition(BaseModel):
@@ -119,7 +122,7 @@ def _require_bus() -> None:
 @app.post("/api/device/hello")
 def device_hello(req: DeviceHello):
     _require_bus()
-    bus.publish(config.RX_NODEINFO, {"from": req.node_id, "long_name": req.long_name,
+    bus.publish(config.rx_topic("info", req.node_id), {"from": req.node_id, "long_name": req.long_name,
                                      "short_name": req.short_name or req.long_name[:4].upper(),
                                      "ts": db.now()})
     return {"status": "ok"}
@@ -129,15 +132,16 @@ def device_hello(req: DeviceHello):
 def device_text(req: DeviceText):
     _require_bus()
     packet_id = secrets.randbits(31)
-    bus.publish(config.RX_TEXT, {"packet_id": packet_id, "from": req.node_id, "to": req.to or "^all",
-                                 "channel": 0, "text": req.text, "ts": db.now(), "rssi": None, "snr": None})
+    bus.publish(config.rx_topic("msg", req.node_id), {
+        "packet_id": packet_id, "from": req.node_id, "to": req.to or "^all", "channel": 0, "text": req.text,
+        "lat": req.lat, "lon": req.lon, "ts": db.now(), "rssi": None, "snr": None})
     return {"packet_id": packet_id}
 
 
 @app.post("/api/device/position")
 def device_position(req: DevicePosition):
     _require_bus()
-    bus.publish(config.RX_POSITION, {"from": req.node_id, "lat": req.lat, "lon": req.lon,
+    bus.publish(config.rx_topic("pos", req.node_id), {"from": req.node_id, "lat": req.lat, "lon": req.lon,
                                      "alt": req.alt, "ts": db.now()})
     return {"status": "ok"}
 

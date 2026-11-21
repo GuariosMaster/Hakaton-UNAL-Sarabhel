@@ -17,22 +17,27 @@ Servidor del puesto de mando que recibe los mensajes de la red **FSK 915 MHz** (
 | Servicio | Archivo | Qué hace |
 |---|---|---|
 | **Broker** | Mosquitto | Bus publicación/suscripción con persistencia (QoS 1). |
-| **Listener** | `sarabhel/listener.py` | Lee el gateway ESP32-S3 por USB serial (pyserial, 115.200 baudios), traduce cada trama JSON a eventos y los publica en Mosquitto. Recibe mensajes para transmitir por radio desde `app/send`. |
+| **Listener** | `sarabhel/listener.py` | Lee el gateway ESP32-S3 por USB serial (pyserial, 115.200 baudios), traduce cada trama JSON a eventos y los publica en Mosquitto. Escribe en el gateway los mensajes de `red/tx/msg` para transmitirlos por radio. |
 | **Mensajería** | `sarabhel/messaging.py` | Clasifica (crítico / moderado / informativo), adjunta la última posición del remitente, guarda en SQLite y emite alertas. |
-| **Localización** | `sarabhel/location.py` | Guarda posiciones GPS e historial, nombre y batería de cada nodo, detecta entrada a zonas de riesgo. |
+| **Localización** | `sarabhel/location.py` | Guarda posiciones GPS e historial, nombre y energía de cada nodo (batería V, panel V, % carga), detecta entrada a zonas de riesgo y alerta de batería baja. |
 | **Dashboard** | `sarabhel/dashboard.py` + `static/` | API REST, eventos en vivo (SSE) y mapa Leaflet incluido localmente (no usa CDN). |
 
 ### ¿Por qué no Kubernetes?
 Un clúster de Kubernetes (aunque sea k3s) consume entre 0,5 y 1 GB de RAM y CPU constante en el plano de control, lo que reduce la autonomía de la batería y agrega piezas que pueden fallar. Con Docker Compose y procesos Python conservamos el mismo diseño de microservicios desacoplados por un broker, pero con unos cientos de MB en total y un solo comando para levantar o reiniciar todo.
 
-### Temas MQTT (según borrador `add_fsk_v1.md`)
+### Temas MQTT
 
 | Tema | Publica | Contenido |
 |---|---|---|
 | `red/albergue/{nodo_id}/msg` | listener | Mensaje de texto recibido por RF FSK |
 | `red/albergue/{nodo_id}/tel` | listener | Telemetría energética (batería, panel, carga) |
 | `red/albergue/{nodo_id}/pos` | listener | Posición GPS del nodo |
-| `app/send` | dashboard | Mensaje escrito en el puesto de mando para transmitir por radio |
+| `red/albergue/{nodo_id}/info` | listener | Nombre del nodo |
+| `app/send` | dashboard | Mensaje escrito en el puesto de mando (lo guarda el servicio de mensajería) |
+| `red/tx/msg` | mensajería | Mensaje a transmitir por radio: `{text, to}` → el listener lo escribe en el gateway |
+
+`{nodo_id}` es `nodo-N` para los nodos de radio (dirección RHMesh N) o `!xxxxxxxx` para los teléfonos
+conectados por Wi‑Fi al puesto de mando (endpoints `/api/device/*`).
 | `events/msg` · `events/position` · `events/node` · `events/alert` | servicios | Datos ya procesados y guardados |
 
 ## Puesta en marcha
@@ -43,21 +48,32 @@ Un clúster de Kubernetes (aunque sea k3s) consume entre 0,5 y 1 GB de RAM y CPU
 cp .env.example .env
 # Demo sin hardware RF (modo simulado):
 docker compose up -d --build
-# Gateway ESP32-S3 conectado por USB nativo:
-docker compose up -d --build
-# Variables relevantes: MESH_CONNECTION=usb, MESH_USB_DEVICE=/dev/ttyUSB0, MESH_USB_BAUD=115200
+# Gateway ESP32-S3 conectado por USB nativo (aparece como /dev/ttyACM0):
+MESH_USB_DEVICE=/dev/ttyACM0 docker compose -f docker-compose.yml -f docker-compose.serial.yml up -d --build
+# Variables relevantes: MESH_CONNECTION=usb, MESH_USB_DEVICE, MESH_USB_BAUD=115200
 ```
 
 Abrir `http://<ip-del-servidor>:8080` desde cualquier equipo de la red local.
 Ver los registros: `docker compose logs -f listener mensajeria`.
 
-### B) Sin Docker (desarrollo / demo en el portátil)
+### B) Windows sin Docker (demo en el portátil)
+
+```powershell
+.\iniciar.ps1                     # nodos FSK simulados
+.\iniciar.ps1 -Radio usb          # gateway ESP32-S3 por USB (detecta el puerto)
+.\iniciar.ps1 -Radio usb -Puerto COM5
+.\iniciar.ps1 -Radio ninguno      # solo teléfonos por Wi-Fi
+```
+
+Abre una ventana por servicio y muestra la IP que deben usar los teléfonos.
+
+### C) Linux/macOS sin Docker (desarrollo)
 
 Se necesita un broker MQTT: instalar Mosquitto, o para pruebas usar `amqtt` (pure Python).
 
 ```bash
 python -m venv .venv
-.venv/bin/pip install -r requirements.txt amqtt pyserial
+.venv/bin/pip install -r requirements.txt amqtt
 # Cada uno en su propia terminal:
 .venv/bin/amqtt
 .venv/bin/python -m sarabhel.messaging
@@ -66,7 +82,7 @@ python -m venv .venv
 # Modo simulado (sin hardware):
 MESH_CONNECTION=sim .venv/bin/python -m sarabhel.listener
 # Con gateway ESP32-S3 por USB:
-MESH_CONNECTION=usb MESH_USB_DEVICE=/dev/ttyUSB0 MESH_USB_BAUD=115200 .venv/bin/python -m sarabhel.listener
+MESH_CONNECTION=usb MESH_USB_DEVICE=/dev/ttyACM0 .venv/bin/python -m sarabhel.listener
 ```
 
 Sin `MESH_CONNECTION` el listener arranca en **modo simulado**: nodos ficticios FSK en Manizales que envían posiciones, mensajes (incluidos SOS) y telemetría energética.
@@ -79,7 +95,7 @@ Sin `MESH_CONNECTION` el listener arranca en **modo simulado**: nodos ficticios 
 
 ## Configuración de los nodos RFM69HCW
 
-Cada nodo (ESP32 + RFM69HCW) y el gateway (ESP32-S3 + RFM69HCW) deben compartir los mismos parámetros RF:
+El firmware está en [`firmware/`](../firmware/) y los parámetros en [`firmware/include/config.h`](../firmware/include/config.h). Cada nodo (ESP32 + RFM69HCW) y el gateway (ESP32-S3 + RFM69HCW) deben compartir los mismos parámetros RF:
 
 | Parámetro | Valor | Justificación |
 |---|---|---|
@@ -89,12 +105,12 @@ Cada nodo (ESP32 + RFM69HCW) y el gateway (ESP32-S3 + RFM69HCW) deben compartir 
 | Protocolo malla | RadioHead RHMesh | Enrutamiento multi-salto, ACK, direccionamiento ID 1-254 |
 | Cifrado | AES-128 por hardware | Sin carga extra en el ESP32 |
 | Sync Word | 0x2D, 0xD4 | Filtrado de ruido en 915 MHz |
-| Trama por aire | `TIPO|BAT_V|PANEL_V|CARGA_PCT|MENSAJE` | Ej: `MSG|12.4|18.1|82|Albergue Coliseo: 280 personas, sin red` |
+| Trama por aire | `TIPO|BAT_V|PANEL_V|CARGA_PCT|MENSAJE` (TIPO: MSG, TEL, POS, INFO) | Ej: `MSG|12.4|18.1|82|Albergue Coliseo: 280 personas` (texto máx. 36 bytes) |
 | USB Serial (gateway → PC) | JSON a 115.200 baudios | Ej: `{"nodo":2,"tipo":"MSG","bat":12.4,"panel":18.1,"carga":82,"msg":"...","rssi":-72}` |
 
 ## Descarga de la app sin internet
 
-El dashboard sirve la página de descarga en `/descargar` y el APK en `/descargar/RedEmergenciaLoRa.apk`. Antes del evento, copiar el APK a `server/descargas/` (ver `descargas/LEEME.md`). Los teléfonos conectados al Wi‑Fi del puesto de mando instalan la app abriendo `http://192.168.1.10:8080/descargar`. La página funciona aunque el broker MQTT esté apagado.
+El dashboard sirve la página de descarga en `/descargar` y el APK en `/descargar/RedEmergencia.apk`. Antes del evento, copiar el APK a `server/descargas/` (ver `descargas/LEEME.md`). Los teléfonos conectados al Wi‑Fi del puesto de mando instalan la app abriendo `http://192.168.1.10:8080/descargar`. La página funciona aunque el broker MQTT esté apagado.
 
 ## Mapa offline
 

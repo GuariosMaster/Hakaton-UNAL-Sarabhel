@@ -38,19 +38,10 @@
 
     <!-- Permissions -->
 
-    <!-- Red local del puesto de mando (HTTP al servidor; no requiere internet) -->
+    <!-- Wi-Fi local del nodo de albergue y del puesto de mando (HTTP, sin internet) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Bluetooth LE hacia el nodo LoRa. Android 12+ -->
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
-        android:usesPermissionFlags="neverForLocation" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <!-- Android 11 o anterior -->
-    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
-    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
-
-    <!-- GPS del teléfono para el SOS (también requerido para BLE en Android 11 o anterior) -->
+    <!-- GPS del teléfono para enviar la ubicación con el SOS -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />

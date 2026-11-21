@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#d62828">
-  <meta name="description" content="App Android para comunicarse en emergencias sin internet ni señal celular, a través de una red LoRa.">
-  <title>Descargar · Red de Emergencia LoRa</title>
+  <meta name="description" content="App Android para comunicarse en emergencias sin internet ni señal celular, a través de una red de radio FSK 915 MHz.">
+  <title>Descargar · Red de Emergencia</title>
   <!-- Vista previa al compartir el enlace (WhatsApp, Telegram, redes sociales) -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Red de Emergencia LoRa — App para Android">
+  <meta property="og:title" content="Red de Emergencia — App para Android">
   <meta property="og:description" content="Pide ayuda y envía tu ubicación aunque no haya internet ni señal celular. Descarga gratis la app.">
   <meta property="og:url" content="https://guariosmaster.github.io/Lora-Hakaton/">
   <meta property="og:locale" content="es_CO">
@@ -137,7 +137,7 @@
 <body>
   <div class="wrap">
     <header class="bar">
-      <div class="brand"><span>📡</span> Red de Emergencia LoRa</div>
+      <div class="brand"><span>📡</span> Red de Emergencia</div>
       <a id="repo-link" href="https://github.com/GuariosMaster/Lora-Hakaton">Código en GitHub</a>
     </header>
 
@@ -146,10 +146,10 @@
         <div class="offline-badge" id="offline-badge" hidden>✓ Descargando desde el puesto de mando, sin internet</div>
         <h1>Pide ayuda aunque no haya internet ni señal celular</h1>
         <p class="lead">
-          La app se conecta por Bluetooth a un nodo de radio LoRa que lleva tu mensaje
-          kilómetros a través de una red en malla hasta el puesto de mando.
+          Conéctate al Wi‑Fi del albergue más cercano: un nodo de radio de 915 MHz lleva tu mensaje
+          y tu ubicación, de nodo en nodo, hasta el puesto de mando.
         </p>
-        <a class="download" id="download" href="https://github.com/GuariosMaster/Lora-Hakaton/releases/download/apk-latest/RedEmergenciaLoRa.apk" download>
+        <a class="download" id="download" href="https://github.com/GuariosMaster/Lora-Hakaton/releases/download/apk-latest/RedEmergencia.apk" download>
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-8 15a1 1 0 0 1 1 1v1h14v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
           <span>Descargar para Android<small>Archivo APK</small></span>
         </a>
@@ -158,9 +158,9 @@
 
       <div class="phone" aria-hidden="true">
         <div class="screen">
-          <div class="top"><b>Emergencia</b><span class="pill">● Nodo · 87%</span></div>
+          <div class="top"><b>Emergencia</b><span class="pill">● Albergue · 🔋87%</span></div>
           <div class="sos"><b>SOS</b><span>Mantén presionado</span></div>
-          <div class="ok">✓ Recibido por la red LoRa</div>
+          <div class="ok">✓ Enviado por radio</div>
           <div class="grid">
             <div>🩸 Herido</div><div>🧱 Atrapado</div>
             <div>💧 Agua</div><div>✅ Estoy bien</div>
@@ -180,7 +180,7 @@
             <li>Botón <b>SOS</b> que envía tu ubicación GPS</li>
             <li>Mensajes rápidos: herido, atrapado, necesito agua…</li>
             <li>Chat con toda la red o con un nodo</li>
-            <li>Mapa de los nodos cercanos</li>
+            <li>Mapa de los nodos cercanos y su energía</li>
           </ul>
         </div>
         <div class="card">
@@ -190,6 +190,7 @@
             <li>Alertas críticas en tiempo real</li>
             <li>Mapa de toda la red y zonas de riesgo</li>
             <li>Ubicación de cada brigada</li>
+            <li>Energía de cada albergue (batería y panel solar)</li>
             <li>Envío de mensajes a cualquier nodo</li>
           </ul>
         </div>
@@ -202,7 +203,7 @@
         <li><b>Descarga el APK</b><span>Toca el botón rojo desde tu teléfono Android.</span></li>
         <li><b>Ábrelo</b><span>Búscalo en Descargas o en la notificación del navegador.</span></li>
         <li><b>Permite la instalación</b><span>Si Android lo pide, autoriza “instalar apps desconocidas” para tu navegador.</span></li>
-        <li><b>Conecta tu nodo</b><span>Abre la app, elige tu modo y conéctate por Bluetooth o prueba el modo demo.</span></li>
+        <li><b>Conéctate</b><span>Únete al Wi‑Fi “Emergencia …” del albergue, abre la app y toca “Wi‑Fi del albergue”. También hay modo demo.</span></li>
       </ol>
     </section>
 
@@ -210,22 +211,23 @@
       <h2>Cómo funciona</h2>
       <div class="flow">
         <div class="node"><div>📱</div><b>Tu teléfono</b><small>la app</small></div>
-        <div class="arrow">Bluetooth</div>
-        <div class="node"><div>📟</div><b>Nodo LoRa</b><small>lo llevas contigo</small></div>
-        <div class="arrow">Radio LoRa, km</div>
+        <div class="arrow">Wi‑Fi local</div>
+        <div class="node"><div>📟</div><b>Nodo del albergue</b><small>ESP32 + panel solar</small></div>
+        <div class="arrow">Radio FSK 915 MHz</div>
         <div class="node"><div>📡</div><b>Gateway</b><small>malla de nodos</small></div>
         <div class="arrow">USB</div>
         <div class="node"><div>💻</div><b>Puesto de mando</b><small>servidor local</small></div>
       </div>
       <div class="note">
-        <b>¿Sin internet?</b> En el puesto de mando, conéctate a su red Wi‑Fi y abre
-        <code>http://192.168.137.1:8080/descargar</code> para descargar la app directamente del servidor local.
+        <b>¿Sin la app?</b> No hace falta: al conectarte al Wi‑Fi “Emergencia …” de un albergue se abre una
+        página para enviar reportes. <b>¿Sin internet para descargarla?</b> En el puesto de mando, conéctate a su
+        Wi‑Fi y abre <code>http://192.168.137.1:8080/descargar</code>.
       </div>
     </section>
 
     <footer>
       Proyecto para el reto de Energía y Conectividad · Hackathon UNAL Manizales.
-      Construido sobre la red abierta <a href="https://meshtastic.org">Meshtastic</a>.
+      Radio RFM69HCW 915 MHz con malla RadioHead sobre ESP32.
     </footer>
   </div>
 
@@ -235,7 +237,7 @@
       var local = location.pathname.indexOf("/descargar") === 0;
       if (!local) return;
       var link = document.getElementById("download");
-      link.href = "/descargar/RedEmergenciaLoRa.apk";
+      link.href = "/descargar/RedEmergencia.apk";
       document.getElementById("offline-badge").hidden = false;
       document.getElementById("repo-link").hidden = true;
       fetch(link.href, { method: "HEAD" }).then(function (r) {

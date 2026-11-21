@@ -1,10 +1,10 @@
 """Servicio de Mensajería.
 
-- mesh/rx/text : clasifica prioridad, adjunta la última posición conocida del
+- red/albergue/+/msg : clasifica prioridad, adjunta la última posición conocida del
                  remitente, guarda en SQLite y emite events/msg (y events/alert
                  si es crítico).
 - app/send     : valida un mensaje del puesto de mando, lo guarda y lo entrega
-                 al listener (mesh/tx/text) para transmitirlo por radio.
+                 al listener (red/tx/msg) para transmitirlo por radio FSK.
 """
 import re
 import threading
@@ -43,8 +43,9 @@ class MessagingService:
         with self.lock, self.conn:
             db.touch_node(self.conn, node, ts)
             row = self.conn.execute("SELECT lat, lon, long_name FROM nodes WHERE node_id = ?", (node,)).fetchone()
-            # Prioridad: coordenadas del teléfono en el texto > última posición conocida del nodo.
-            lat, lon = coords_in_text(text) or ((row["lat"], row["lon"]) if row else (None, None))
+            # Prioridad: ubicación enviada con el mensaje > coordenadas en el texto > última posición del nodo.
+            sent = (p["lat"], p["lon"]) if geo.valid_coords(p.get("lat"), p.get("lon")) else None
+            lat, lon = sent or coords_in_text(text) or ((row["lat"], row["lon"]) if row else (None, None))
             if priority == CRITICO:
                 self.conn.execute("UPDATE nodes SET alert_ts = ? WHERE node_id = ?", (ts, node))
             cur = self.conn.execute(
@@ -70,7 +71,7 @@ class MessagingService:
         if not text:
             return
         if len(text.encode("utf-8")) > config.MAX_TEXT_BYTES:
-            log.error("Mensaje demasiado largo para LoRa, descartado")
+            log.error("Mensaje demasiado largo para la radio FSK, descartado")
             return
         ts = db.now()
         with self.lock, self.conn:

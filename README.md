@@ -17,7 +17,8 @@ El resultado buscado no es solo que los nodos se hablen: es que esa información
 | [`app/`](app/) | **App móvil Android propia** con dos modos: *Campo* (portal Wi-Fi local del nodo, botón SOS con GPS, chat) y *Puesto de mando* (alertas, mapa y mensajes desde el servidor por Wi‑Fi local). Ver [app/README.md](app/README.md). |
 | [`web/`](web/) | Página de descarga de la app. Servida por el servidor local en `/descargar` (descarga sin internet). |
 | [`server/`](server/) | Servidor local del puesto de mando: Mosquitto (MQTT) + servicios Python (listener USB del gateway ESP32-S3, mensajería, localización GPS, dashboard con mapa) + SQLite, orquestado con Docker Compose. Ver [server/README.md](server/README.md). |
-| [`config/`](config/) | Configuración de referencia de los nodos RFM69HCW / ESP32 (parámetros FSK, claves AES, pines SPI). |
+| [`firmware/`](firmware/) | Firmware PlatformIO para **ESP32-S3 (gateway)** y **ESP32 (nodo de albergue)** con RFM69HCW + RadioHead RHMesh: trama FSK, AES-128, portal Wi‑Fi cautivo, API para la app y medición de energía solar. Incluye un nodo simulado para probar sin hardware. Ver [firmware/README.md](firmware/README.md). |
+| [`config/`](config/) | Configuración de referencia de la red FSK (parámetros de radio, trama, protocolo USB y conexiones SPI). La clave AES real no se sube al repositorio. |
 
 ## Descargar la app
 
@@ -26,7 +27,10 @@ El resultado buscado no es solo que los nodos se hablen: es que esa información
 
 ## Probar la app entre teléfonos
 
-Sin hardware RF, el servidor del portátil reparte los mensajes entre los teléfonos conectados a su Wi‑Fi (conexión **📶 Red local** de la app). Guía paso a paso en [PRUEBAS.md](PRUEBAS.md).
+Sin hardware RF hay dos formas, ambas en [PRUEBAS.md](PRUEBAS.md):
+
+- **Nodo de albergue simulado** (`firmware/herramientas/nodo_simulado.py`): la app se conecta como si fuera al Wi‑Fi de un ESP32 real (conexión **📡 Wi‑Fi del albergue**) y el portal cautivo se puede abrir en el navegador.
+- **Puesto de mando**: el servidor del portátil reparte los mensajes entre los teléfonos conectados a su Wi‑Fi (conexión **🖥️ Puesto de mando**).
 
 ## Probar sin hardware RF
 
@@ -40,7 +44,7 @@ docker compose up -d --build
 
 ## Estado del proyecto
 
-> **Nota (noviembre 2026):** el software del servidor está funcionando y probado en **modo simulado**. Aún no tenemos el dispositivo físico (nodos ESP32 + RFM69HCW y gateway ESP32-S3), por lo que nada se ha probado todavía con radio real FSK.
+> **Nota (noviembre 2026):** el servidor, la app y el portal están funcionando y probados en **modo simulado** (nodos FSK simulados y nodo de albergue simulado). El firmware ESP32 compila, pero aún no tenemos el dispositivo físico (nodos ESP32 + RFM69HCW y gateway ESP32-S3), por lo que nada se ha probado todavía con radio real FSK.
 
 ### Lo que ya está hecho
 
@@ -48,23 +52,26 @@ docker compose up -d --build
 - [x] **Listener USB** que lee JSON del gateway ESP32-S3 + RFM69HCW por puerto serie nativo (CDC) a 115.200 baudios, con **modo simulado** de nodos ficticios en Manizales para demos sin hardware.
 - [x] **Servicio de mensajería**: guarda el historial y clasifica cada mensaje como crítico, moderado o informativo por palabras clave (SOS, herido, agua…).
 - [x] **Servicio de localización GPS**: última posición e historial de cada nodo, batería, y alerta cuando un nodo entra en una zona de riesgo (geocercas).
-- [x] **Dashboard web** del puesto de mando: mapa en vivo, alertas, lista de nodos, recorrido de cada nodo y envío de mensajes a la red.
-- [x] Configuración de referencia de los nodos RFM69HCW (sin claves expuestas).
+- [x] **Telemetría de energía**: voltaje de batería, voltaje del panel y % de carga de cada nodo (vienen en cada trama), panel **Energía** en el dashboard y en la app, y alerta de **batería baja**.
+- [x] **Dashboard web** del puesto de mando: mapa en vivo, alertas, energía, lista de nodos, recorrido de cada nodo y envío de mensajes a la red.
+- [x] **Firmware ESP32** (PlatformIO): gateway ESP32-S3 (USB JSON ↔ radio) y nodo de albergue (portal Wi‑Fi cautivo, API para la app, medición de batería/panel, telemetría cada 5 min, malla RHMesh, AES-128). Compila; falta probarlo en hardware.
+- [x] **Nodo de albergue simulado** en Python con la misma API y portal que el firmware, para probar la app y el portal sin hardware.
+- [x] Configuración de referencia de la red FSK (sin claves expuestas).
 - [x] Pruebas unitarias (prioridad, paquetes, geocercas).
-- [x] **App móvil Android** (React + Capacitor) con modo Campo (portal Wi-Fi del nodo, SOS con GPS del teléfono, mensajes rápidos, chat, mapa) y modo Puesto de mando (alertas, mapa, mensajes). Probada en el navegador con radio simulada y con el servidor.
+- [x] **App móvil Android** (React + Capacitor) con modo Campo (conexión al Wi‑Fi del nodo de albergue, SOS con GPS del teléfono, mensajes rápidos, chat, mapa) y modo Puesto de mando (alertas, mapa, mensajes, energía). Probada en el navegador con el nodo simulado y con el servidor.
 
 ### Lo que falta
 
 **Necesita el dispositivo físico**
 - [ ] Probar el listener USB con el gateway ESP32-S3 + RFM69HCW real.
 - [ ] Probar la app móvil por el portal Wi-Fi local del nodo con hardware real e instalar el APK en varios teléfonos.
-- [ ] Aplicar la configuración FSK 915 MHz a los nodos (frecuencia, potencia, sync word, clave AES).
+- [ ] Cargar el firmware en las placas y verificar radio, portal y medición de energía (calibrar divisores resistivos).
 - [ ] Pruebas de enlace RF en Manizales (distancia, RSSI, tasa de entrega, consumo energético).
 - [ ] Probar el despliegue con Docker en el servidor Ubuntu del PMU.
 
 **Se puede avanzar sin hardware**
 - [ ] **Gestión de alertas**: marcar una alerta como atendida, asignar equipo de rescate y agregar notas.
-- [ ] **Kit de energía**: dimensionar panel, batería y autonomía (nodos y servidor) y mostrarlo en el dashboard.
+- [ ] **Kit de energía**: dimensionar panel, batería y autonomía de nodos y servidor (la telemetría ya se muestra en el dashboard).
 - [ ] **Escenario de demo guionizado** (un "sismo" simulado que siempre se desarrolla igual).
 - [ ] **Confirmación de entrega y buzón** para nodos desconectados.
 - [ ] **Mapa offline** de Manizales (mosaicos servidos en local; hoy el mapa usa internet).
@@ -73,5 +80,5 @@ docker compose up -d --build
 - [ ] Contraseña de acceso al dashboard.
 
 **Documentación**
-- [ ] Unificar las propuestas técnicas en un solo documento alineado con lo construido (ver borrador `add_fsk_v1.md` en la raíz del proyecto).
+- [ ] Unificar las propuestas técnicas en un solo documento alineado con lo construido (el borrador `add_fsk_v1.md` aún no está en el repositorio).
 - [ ] Definir hardware: placas ESP32-S3, ESP32 DevKit V1, ESP32-C6, transceptores RFM69HCW 915 MHz, paneles solares y baterías LiFePO4.

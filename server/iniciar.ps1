@@ -8,16 +8,15 @@
   teléfonos conectados a la misma red Wi-Fi.
 
 .EXAMPLE
-  .\iniciar.ps1                       # con nodos LoRa simulados
+  .\iniciar.ps1                       # con nodos FSK simulados
   .\iniciar.ps1 -Radio ninguno        # solo teléfonos por Wi-Fi (prueba entre teléfonos)
-  .\iniciar.ps1 -Radio serial -Puerto COM5
-  .\iniciar.ps1 -Radio tcp -NodoIp 192.168.1.50
+  .\iniciar.ps1 -Radio usb            # gateway ESP32-S3 por USB (detecta el puerto)
+  .\iniciar.ps1 -Radio usb -Puerto COM5
 #>
 param(
-  [ValidateSet("sim", "serial", "tcp", "ninguno")]
+  [ValidateSet("sim", "usb", "ninguno")]
   [string]$Radio = "sim",
-  [string]$Puerto = "",
-  [string]$NodoIp = ""
+  [string]$Puerto = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,8 +52,7 @@ Start-Service-Window "Dashboard" "& '$py' -m sarabhel.dashboard"
 
 switch ($Radio) {
   "sim"    { Start-Service-Window "Listener (simulado)" "`$env:MESH_CONNECTION='sim'; & '$py' -m sarabhel.listener" }
-  "serial" { Start-Service-Window "Listener (USB $Puerto)" "`$env:MESH_CONNECTION='serial'; `$env:MESH_SERIAL_PORT='$Puerto'; & '$py' -m sarabhel.listener" }
-  "tcp"    { Start-Service-Window "Listener (Wi-Fi $NodoIp)" "`$env:MESH_CONNECTION='tcp'; `$env:MESH_TCP_HOST='$NodoIp'; & '$py' -m sarabhel.listener" }
+  "usb"    { Start-Service-Window "Listener (gateway USB $Puerto)" "`$env:MESH_CONNECTION='usb'; `$env:MESH_USB_DEVICE='$Puerto'; & '$py' -m sarabhel.listener" }
   "ninguno" { }
 }
 

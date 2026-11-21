@@ -14,8 +14,11 @@ CREATE TABLE IF NOT EXISTS nodes (
     lon         REAL,
     alt         REAL,
     pos_ts      INTEGER,
-    battery     INTEGER,
-    voltage     REAL,
+    battery     INTEGER,          -- carga de la batería (%)
+    voltage     REAL,             -- voltaje de la batería (V)
+    panel_v     REAL,             -- voltaje del panel solar (V)
+    energy_ts   INTEGER,          -- última telemetría de energía
+    rssi        REAL,             -- intensidad de la última trama recibida por el gateway
     last_heard  INTEGER,
     risk_zone   TEXT,
     alert_ts    INTEGER
@@ -58,6 +61,12 @@ def connect() -> sqlite3.Connection:
     conn.execute("PRAGMA busy_timeout=10000")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.executescript(SCHEMA)
+    # Migración de bases creadas antes de la telemetría de energía.
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(nodes)")}
+    for col, kind in (("panel_v", "REAL"), ("energy_ts", "INTEGER"), ("rssi", "REAL")):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE nodes ADD COLUMN {col} {kind}")
+    conn.commit()
     return conn
 
 

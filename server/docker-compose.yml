@@ -2,8 +2,8 @@
 # Stack liviano para un portátil con batería: Mosquitto + servicios Python + SQLite.
 #
 #   docker compose up -d --build                     # modo simulado (sin radio)
-#   MESH_CONNECTION=tcp MESH_TCP_HOST=192.168.4.1 docker compose up -d
-#   docker compose -f docker-compose.yml -f docker-compose.serial.yml up -d   # gateway por USB (Linux)
+#   MESH_USB_DEVICE=/dev/ttyACM0 docker compose -f docker-compose.yml -f docker-compose.serial.yml up -d
+#                                                    # gateway ESP32-S3 + RFM69HCW por USB (Linux)
 
 name: sarabhel
 
@@ -46,8 +46,7 @@ services:
     environment:
       <<: *env
       MESH_CONNECTION: ${MESH_CONNECTION:-sim}
-      MESH_TCP_HOST: ${MESH_TCP_HOST:-}
-      MESH_CHANNEL_INDEX: ${MESH_CHANNEL_INDEX:-0}
+      MESH_USB_BAUD: ${MESH_USB_BAUD:-115200}
 
   mensajeria:
     <<: *app

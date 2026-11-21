@@ -1,17 +1,20 @@
-// Estado del modo Campo: conexión con el nodo LoRa propio, nodos, mensajes y GPS.
+// Estado del modo Campo: conexión con el nodo de albergue (o el puesto de mando), nodos, mensajes y GPS.
 import { create } from "zustand";
 import {
   BROADCAST, createRadio, idToNum, numToId,
   type ChatMessage, type LinkStatus, type MeshNode, type RadioLink,
 } from "../lib/mesh";
 import { classify } from "../lib/priority";
-import { getFix, load, now, save, withCoords, type Fix } from "../lib/util";
+import { getFix, load, now, save, type Fix } from "../lib/util";
 
 type Kind = RadioLink["kind"];
 
 interface FieldState {
   kind: Kind;
-  /** Para la conexión "Red local": servidor del puesto de mando y nombre de este teléfono. */
+  /** Dirección del nodo de albergue en su red Wi-Fi. */
+  nodeUrl: string;
+  setNodeUrl: (url: string) => void;
+  /** Para la conexión "Puesto de mando (Wi-Fi)": servidor y nombre de este teléfono. */
   serverUrl: string;
   deviceName: string;
   deviceId: string;
@@ -33,7 +36,7 @@ interface FieldState {
 const MAX_MESSAGES = 300;
 let radio: RadioLink | undefined;
 
-// Identificador estable de este teléfono en la red, con formato de nodo Meshtastic.
+// Identificador estable de este teléfono en la red ("!" + 8 hex), distinto de los nodos de radio.
 function deviceId(): string {
   const saved = load<string | null>("campo.idDispositivo", null);
   if (saved && /^![0-9a-f]{8}$/.test(saved)) return saved;
@@ -61,12 +64,12 @@ export const useField = create<FieldState>()((set, get) => {
     });
 
   const sendRaw = async (text: string, to: string, fix?: Fix) => {
-    if (!radio || get().status !== "conectado") throw new Error("Conecta tu nodo LoRa primero");
+    if (!radio || get().status !== "conectado") throw new Error("Conéctate primero al Wi‑Fi del albergue");
     const key = crypto.randomUUID();
     addMessage({ key, from: "yo", to, text, ts: now(), priority: classify(text), mine: true,
                  status: "enviando", lat: fix?.lat, lon: fix?.lon });
     try {
-      const packetId = await radio.sendText(text, to === "^all" ? BROADCAST : idToNum(to));
+      const packetId = await radio.sendText(text, to === "^all" ? BROADCAST : idToNum(to) ?? BROADCAST, fix);
       set((s) => ({ messages: s.messages.map((m) => (m.key === key ? { ...m, packetId } : m)) }));
     } catch (e) {
       set((s) => ({ messages: s.messages.map((m) => (m.key === key ? { ...m, status: "fallo" } : m)) }));
@@ -77,7 +80,15 @@ export const useField = create<FieldState>()((set, get) => {
   const id = deviceId();
 
   return {
-    kind: load<Kind>("campo.tipo", "simulador"),
+    kind: (() => {
+      const k = load<string>("campo.tipo", "simulador");
+      return (["albergue", "red-local", "simulador"].includes(k) ? k : "simulador") as Kind;
+    })(),
+    nodeUrl: load("campo.nodo", "http://192.168.4.1"),
+    setNodeUrl: (nodeUrl) => {
+      save("campo.nodo", nodeUrl);
+      set({ nodeUrl });
+    },
     serverUrl: load("campo.servidor", "http://192.168.137.1:8080"),
     deviceName: load("campo.nombre", `Teléfono ${id.slice(-4).toUpperCase()}`),
     deviceId: id,
@@ -112,6 +123,7 @@ export const useField = create<FieldState>()((set, get) => {
         },
         ack: (packetId, ok) => updateMessage(packetId, { status: ok ? "en-red" : "fallo" }),
       }, {
+        nodeUrl: get().nodeUrl,
         serverUrl: get().serverUrl,
         identity: { id: get().deviceId, longName: get().deviceName, shortName: shortFrom(get().deviceName) },
       });
@@ -130,11 +142,10 @@ export const useField = create<FieldState>()((set, get) => {
 
     send: (text, to = "^all") => sendRaw(text, to),
 
-    /** SOS / mensaje rápido: toma la ubicación GPS, la comparte con la malla y envía el texto. */
+    /** SOS / mensaje rápido: toma la ubicación GPS y la envía junto con el texto (trama POS + MSG). */
     sendEmergency: async (text) => {
       const fix = await get().locate();
-      if (fix && radio) await radio.sendPosition(fix.lat, fix.lon, fix.alt).catch(() => {});
-      await sendRaw(withCoords(text, fix), "^all", fix);
+      await sendRaw(text, "^all", fix);
     },
 
     locate: async () => {
@@ -153,6 +164,7 @@ export const useField = create<FieldState>()((set, get) => {
 export const nodeLabel = (nodes: Record<number, MeshNode>, id: string) => {
   if (id === "^all") return "Todos";
   if (id === "yo") return "Yo";
-  const n = nodes[idToNum(id)];
+  const num = idToNum(id);
+  const n = num !== undefined ? nodes[num] : undefined;
   return n?.longName || n?.shortName || id;
 };

@@ -1,0 +1,4 @@
+.pio/
+.vscode/
+# Clave AES real de la red: nunca subirla
+include/clave.h

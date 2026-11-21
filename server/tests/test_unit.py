@@ -1,5 +1,7 @@
+import json
+
 from sarabhel import config, geo
-from sarabhel.listener import packet_to_events
+from sarabhel.gateway import encode_tx, parse_line
 from sarabhel.priority import CRITICO, INFORMATIVO, MODERADO, classify
 
 
@@ -18,26 +20,36 @@ def test_classify_moderate_and_info():
     assert classify("Hay que sostener la puerta") == INFORMATIVO
 
 
-def test_text_packet():
-    pkt = {"id": 7, "fromId": "!abc", "toId": "^all", "rxTime": 100, "rxRssi": -90, "rxSnr": 5.5,
-           "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "hola"}}
-    [(topic, p)] = packet_to_events(pkt)
-    assert topic == config.RX_TEXT
-    assert p["from"] == "!abc" and p["text"] == "hola" and p["ts"] == 100 and p["rssi"] == -90
+def test_gateway_msg_line():
+    line = ('{"nodo":2,"tipo":"MSG","bat":12.4,"panel":18.1,"carga":82,'
+            '"msg":"Albergue Coliseo: 280 personas","rssi":-72}')
+    events = dict(parse_line(line))
+    tel = events["red/albergue/nodo-2/tel"]
+    assert (tel["voltage"], tel["panel_v"], tel["battery"], tel["rssi"]) == (12.4, 18.1, 82, -72)
+    msg = events["red/albergue/nodo-2/msg"]
+    assert msg["from"] == "nodo-2" and msg["text"] == "Albergue Coliseo: 280 personas" and msg["to"] == "^all"
 
 
-def test_position_packet():
-    pkt = {"fromId": "!abc", "rxTime": 100,
-           "decoded": {"portnum": "POSITION_APP", "position": {"latitude": 5.07, "longitude": -75.51, "time": 90}}}
-    [(topic, p)] = packet_to_events(pkt)
-    assert topic == config.RX_POSITION
-    assert (p["lat"], p["lon"], p["ts"]) == (5.07, -75.51, 90)
+def test_gateway_pos_and_info_lines():
+    pos = dict(parse_line('{"nodo":3,"tipo":"POS","lat":5.07,"lon":-75.51}'))["red/albergue/nodo-3/pos"]
+    assert (pos["lat"], pos["lon"]) == (5.07, -75.51)
+    alt = dict(parse_line('{"nodo":3,"tipo":"POS","msg":"5.07,-75.51"}'))["red/albergue/nodo-3/pos"]
+    assert (alt["lat"], alt["lon"]) == (5.07, -75.51)
+    info = dict(parse_line('{"nodo":4,"tipo":"INFO","nombre":"Ladera Aranjuez"}'))
+    assert info["red/albergue/nodo-4/info"]["long_name"] == "Ladera Aranjuez"
 
 
-def test_ignored_packets():
-    assert packet_to_events({"fromId": "!abc", "decoded": {"portnum": "POSITION_APP", "position": {}}}) == []
-    assert packet_to_events({"fromId": "!abc", "encrypted": "xxx"}) == []
-    assert packet_to_events({"decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "x"}}) == []
+def test_gateway_ignores_noise():
+    assert parse_line("[RHMesh] ruta actualizada") == []
+    assert parse_line('{"tipo":"MSG","msg":"sin nodo"}') == []
+    assert parse_line('{"nodo":300,"tipo":"MSG","msg":"fuera de rango"}') == []
+    assert parse_line("{json roto") == []
+
+
+def test_encode_tx():
+    assert json.loads(encode_tx("Hola", "nodo-5")) == {"dest": 5, "msg": "Hola"}
+    assert json.loads(encode_tx("Todos", None)) == {"dest": 255, "msg": "Todos"}
+    assert encode_tx("Para un teléfono", "!a1b2c3d4") is None
 
 
 def test_zones():

@@ -53,7 +53,7 @@ export function Empty({ children }: { children: ReactNode }) {
   return <p className="empty">{children}</p>;
 }
 
-/** Caja para escribir mensajes con contador de bytes (límite de LoRa). */
+/** Caja para escribir mensajes con contador de bytes (límite de un paquete de radio FSK). */
 export function Composer({ onSend, disabled, destinations }: {
   onSend: (text: string, to: string) => Promise<void>;
   disabled?: boolean;

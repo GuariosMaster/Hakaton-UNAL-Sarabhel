@@ -13,7 +13,9 @@ export function ago(ts?: number | null): string {
 
 export const utf8Bytes = (t: string) => new TextEncoder().encode(t).length;
 
-export const MAX_TEXT_BYTES = 200;
+// Un paquete RHMesh sobre RFM69 lleva como máximo 54 bytes; la trama "MSG|12.4|18.1|100|"
+// ocupa 18, quedan 36 para el texto (igual que MAX_TEXTO en el firmware y el servidor).
+export const MAX_TEXT_BYTES = 36;
 
 export interface Fix {
   lat: number;
@@ -34,10 +36,6 @@ export async function getFix(): Promise<Fix> {
     ts: now(),
   };
 }
-
-/** Coordenadas al final del texto: el servidor las lee aunque el nodo no tenga GPS. */
-export const withCoords = (text: string, fix?: Fix) =>
-  fix ? `${text} 📍${fix.lat.toFixed(5)},${fix.lon.toFixed(5)}` : text;
 
 export function load<T>(key: string, fallback: T): T {
   try {
