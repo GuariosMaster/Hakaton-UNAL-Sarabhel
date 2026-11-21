@@ -11,7 +11,7 @@ que hablan exactamente igual que las reales.
 ## Qué se necesita
 
 - El portátil con el proyecto (Windows).
-- Uno o más teléfonos Android con la app ([descarga](https://guariosmaster.github.io/Lora-Hakaton/)),
+- Uno o más teléfonos Android con la app ([descarga](https://guariosmaster.github.io/Hakaton-UNAL-Sarabhel/)),
   en la **misma red Wi‑Fi** que el portátil: la de la casa, el hotspot del teléfono o la zona con
   cobertura del portátil. No hace falta internet. (Las redes de la universidad suelen aislar a los
   dispositivos entre sí: mejor usar un hotspot.)

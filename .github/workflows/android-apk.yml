@@ -1,6 +1,6 @@
 # Compila la app Android y publica el APK en la release "apk-latest".
 # La página de descarga enlaza siempre a:
-#   https://github.com/GuariosMaster/Lora-Hakaton/releases/download/apk-latest/RedEmergencia.apk
+#   https://github.com/GuariosMaster/Hakaton-UNAL-Sarabhel/releases/download/apk-latest/RedEmergencia.apk
 name: APK Android
 
 on:

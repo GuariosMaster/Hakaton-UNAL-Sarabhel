@@ -22,7 +22,7 @@ El resultado buscado no es solo que los nodos se hablen: es que esa información
 
 ## Descargar la app
 
-- **Con internet:** https://guariosmaster.github.io/Lora-Hakaton/ — el APK se compila automáticamente con GitHub Actions en cada cambio de `app/` y queda en la release [`apk-latest`](https://github.com/GuariosMaster/Lora-Hakaton/releases/tag/apk-latest).
+- **Con internet:** https://guariosmaster.github.io/Hakaton-UNAL-Sarabhel/ — el APK se compila automáticamente con GitHub Actions en cada cambio de `app/` y queda en la release [`apk-latest`](https://github.com/GuariosMaster/Hakaton-UNAL-Sarabhel/releases/tag/apk-latest).
 - **Sin internet, en el puesto de mando:** conectarse al Wi‑Fi del portátil y abrir `http://192.168.137.1:8080/descargar` (copiar antes el APK a `server/descargas/`).
 
 ## Demo para la presentación
