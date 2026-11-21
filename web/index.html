@@ -22,6 +22,7 @@
       :root { --bg: #101318; --panel: #1a1e26; --text: #e7e9ee; --muted: #a0a8b6; --border: #2a303b; }
     }
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     html { -webkit-text-size-adjust: 100%; }
     body {
       margin: 0; background: var(--bg); color: var(--text);
@@ -119,11 +120,33 @@
 
     footer { border-top: 1px solid var(--border); padding: 24px 0 40px; color: var(--muted); font-size: 14px; }
 
+    .section-lead { color: var(--muted); margin: -8px 0 18px; max-width: 46em; }
+    .card h3 small { font-size: 13px; font-weight: 500; color: var(--muted); }
+    .card.highlight { border-color: var(--red); box-shadow: 0 0 0 3px rgba(214, 40, 40, .12); }
+    .update-note { max-width: 30em; }
+    .news { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .news li { display: flex; gap: 12px; align-items: flex-start; background: var(--panel);
+      border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+    .news li > span { font-size: 22px; line-height: 1; }
+    /* Teléfono de muestra: pantalla de inicio */
+    .login-demo { align-items: center; gap: 9px; padding: 16px 12px; }
+    .brand-mini { display: flex; flex-direction: column; align-items: center; font-size: 26px; }
+    .brand-mini b { font-size: 12px; margin-top: 2px; }
+    .sos-guest-mini { background: var(--red); color: #fff; border-radius: 8px; padding: 7px 10px; font-weight: 700; width: 100%; text-align: center; }
+    .user-mini { background: #1a1e26; border: 1px solid #2a303b; border-radius: 6px; padding: 5px 8px; width: 100%; color: #a0a8b6; }
+    .dots-mini { display: flex; gap: 9px; }
+    .dots-mini span { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #a0a8b6; }
+    .dots-mini span.on { background: #e7e9ee; border-color: #e7e9ee; }
+    .keys-mini { display: grid; grid-template-columns: repeat(3, 34px); gap: 7px; }
+    .keys-mini span { height: 34px; border-radius: 50%; background: #1a1e26; border: 1px solid #2a303b;
+      display: flex; align-items: center; justify-content: center; font-size: 14px; }
+
     @media (max-width: 760px) {
       .hero { grid-template-columns: 1fr; padding-top: 12px; text-align: center; }
       .hero p.lead { margin-left: auto; margin-right: auto; }
       .phone { width: 200px; }
       .cards { grid-template-columns: 1fr; }
+      .news { grid-template-columns: 1fr; }
       ol.steps { grid-template-columns: 1fr 1fr; }
       .flow { flex-direction: column; }
       .flow .arrow::after { content: "↓"; }
@@ -147,54 +170,90 @@
         <h1>Pide ayuda aunque no haya internet ni señal celular</h1>
         <p class="lead">
           Conéctate al Wi‑Fi del albergue más cercano: un nodo de radio de 915 MHz lleva tu mensaje
-          y tu ubicación, de nodo en nodo, hasta el puesto de mando.
+          y tu ubicación, de nodo en nodo, hasta el puesto de mando. <b>Pedir ayuda no requiere cuenta.</b>
         </p>
         <a class="download" id="download" href="https://github.com/GuariosMaster/Hakaton-UNAL-Sarabhel/releases/download/apk-latest/RedEmergencia.apk" download>
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-8 15a1 1 0 0 1 1 1v1h14v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
           <span>Descargar para Android<small>Archivo APK</small></span>
         </a>
         <p class="meta">Android 7.0 o superior · Gratis · <span id="apk-size">≈ 5 MB</span></p>
+        <p class="meta update-note">¿Tenías una versión anterior? Desinstálala <b>una sola vez</b> antes de instalar
+          esta; desde ahora las actualizaciones se instalan encima.</p>
       </div>
 
       <div class="phone" aria-hidden="true">
-        <div class="screen">
-          <div class="top"><b>Emergencia</b><span class="pill">● Albergue · 🔋87%</span></div>
-          <div class="sos"><b>SOS</b><span>Mantén presionado</span></div>
-          <div class="ok">✓ Enviado por radio</div>
-          <div class="grid">
-            <div>🩸 Herido</div><div>🧱 Atrapado</div>
-            <div>💧 Agua</div><div>✅ Estoy bien</div>
+        <div class="screen login-demo">
+          <div class="brand-mini">📡<b>Red de Emergencia</b></div>
+          <div class="sos-guest-mini">🆘 Emergencia sin cuenta</div>
+          <div class="user-mini">ana.perez</div>
+          <div class="dots-mini"><span class="on"></span><span class="on"></span><span></span><span></span></div>
+          <div class="keys-mini">
+            <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span>
+            <span>7</span><span>8</span><span>9</span><i></i><span>0</span><span>⌫</span>
           </div>
-          <div class="nav"><span class="on">🆘 SOS</span><span>💬</span><span>🗺️</span><span>📶</span></div>
         </div>
       </div>
     </div>
 
     <section>
-      <h2>Una app, dos modos</h2>
+      <h2>Una app para cada persona</h2>
+      <p class="section-lead">Cada quien entra con su <b>usuario y un PIN de 4 dígitos</b> y ve lo que necesita.
+        Pedir ayuda está siempre disponible, con o sin cuenta.</p>
       <div class="cards">
-        <div class="card">
-          <div class="icon">🧑‍🚒</div>
-          <h3>Modo Campo</h3>
+        <div class="card highlight">
+          <div class="icon">🆘</div>
+          <h3>Cualquier persona <small>sin cuenta</small></h3>
           <ul>
             <li>Botón <b>SOS</b> que envía tu ubicación GPS</li>
             <li>Mensajes rápidos: herido, atrapado, necesito agua…</li>
-            <li>Chat con toda la red o con un nodo</li>
-            <li>Mapa de los nodos cercanos y su energía</li>
+            <li>Chat y mapa de los albergues cercanos</li>
+            <li>Si no hay conexión, el mensaje <b>queda en cola</b> y sale solo al conectar</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="icon">🧑‍🚒</div>
+          <h3>Socorrista</h3>
+          <ul>
+            <li>Todo lo anterior, con su nombre en la red</li>
+            <li>Pestaña <b>Asignadas</b>: las emergencias que el puesto de mando asignó a su equipo</li>
+            <li>Marca cada una como <b>En camino</b> o <b>Atendida</b>, con una nota</li>
+            <li>Funciona sin conexión después del primer ingreso</li>
           </ul>
         </div>
         <div class="card">
           <div class="icon">🗺️</div>
-          <h3>Modo Puesto de mando</h3>
+          <h3>Puesto de mando</h3>
           <ul>
-            <li>Alertas críticas en tiempo real</li>
-            <li>Mapa de toda la red y zonas de riesgo</li>
-            <li>Ubicación de cada brigada</li>
-            <li>Energía de cada albergue (batería y panel solar)</li>
-            <li>Envío de mensajes a cualquier nodo</li>
+            <li>Alertas en tiempo real con aviso sonoro</li>
+            <li>Asigna equipos de rescate y lleva el seguimiento de cada alerta</li>
+            <li>Mapa de la red, zonas de riesgo y ubicación de cada brigada</li>
+            <li>Energía de cada albergue y horas de autonomía sin sol</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="icon">🔐</div>
+          <h3>Administrador</h3>
+          <ul>
+            <li>Todo lo del puesto de mando</li>
+            <li>Crea usuarios, asigna roles y equipos</li>
+            <li>Reinicia PIN y desactiva cuentas</li>
+            <li>Bloqueo automático tras 5 intentos fallidos</li>
           </ul>
         </div>
       </div>
+    </section>
+
+    <section>
+      <h2>Novedades de esta versión</h2>
+      <ul class="news">
+        <li><span>🔐</span><div><b>Inicio de sesión con PIN de 4 dígitos</b> y tres roles: administrador, puesto de mando y socorrista.</div></li>
+        <li><span>🆘</span><div><b>Emergencia sin cuenta:</b> el SOS nunca queda bloqueado por el inicio de sesión.</div></li>
+        <li><span>🕓</span><div><b>Bandeja de salida:</b> lo que escribes sin conexión se envía solo cuando vuelve la red.</div></li>
+        <li><span>🚑</span><div><b>Alertas asignadas</b> a cada equipo de rescate, con seguimiento desde el puesto de mando.</div></li>
+        <li><span>✉️</span><div><b>Mensajes de hasta 120 caracteres</b> por radio.</div></li>
+        <li><span>🔋</span><div><b>Autonomía de energía</b> de cada albergue y alerta de batería baja.</div></li>
+        <li><span>⬆️</span><div><b>Actualizaciones encima</b>, sin desinstalar la app.</div></li>
+      </ul>
     </section>
 
     <section>
@@ -203,7 +262,7 @@
         <li><b>Descarga el APK</b><span>Toca el botón rojo desde tu teléfono Android.</span></li>
         <li><b>Ábrelo</b><span>Búscalo en Descargas o en la notificación del navegador.</span></li>
         <li><b>Permite la instalación</b><span>Si Android lo pide, autoriza “instalar apps desconocidas” para tu navegador.</span></li>
-        <li><b>Conéctate</b><span>Únete al Wi‑Fi “Emergencia …” del albergue, abre la app y toca “Wi‑Fi del albergue”. También hay modo demo.</span></li>
+        <li><b>Entra o pide ayuda</b><span>Entra con el usuario y PIN que te dio el administrador, o toca <b>🆘 Emergencia</b> sin cuenta. Luego únete al Wi‑Fi “Emergencia …” del albergue.</span></li>
       </ol>
     </section>
 
@@ -227,7 +286,7 @@
 
     <footer>
       Proyecto para el reto de Energía y Conectividad · Hackathon UNAL Manizales.
-      Radio RFM69HCW 915 MHz con malla RadioHead sobre ESP32.
+      Radio RFM69HCW 915 MHz con malla RadioHead sobre ESP32 · Equipo Sarabhel.
     </footer>
   </div>
 
