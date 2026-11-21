@@ -90,14 +90,26 @@ export class AlbergueRadio implements RadioLink {
   async sendText(text: string, to: number = BROADCAST, fix?: Fix): Promise<number> {
     // Desde un nodo, "todos" significa el puesto de mando: él lo reparte al resto de la red.
     const dest = to === BROADCAST || to > 254 ? COMMAND_NUM : to;
-    const r = await this.req<{ ok: boolean; seq: number }>("/api/mensaje",
-      { msg: text, dest, lat: fix?.lat, lon: fix?.lon });
+    const isSos = text.toUpperCase().startsWith("SOS");
+    const payload = {
+      tipo: isSos ? "sos" : "texto",
+      mensaje: text,
+      destino: dest,
+      latitud: fix?.lat ?? null,
+      longitud: fix?.lon ?? null,
+      // Alias para máxima compatibilidad:
+      msg: text,
+      dest,
+      lat: fix?.lat ?? null,
+      lon: fix?.lon ?? null,
+    };
+    const r = await this.req<{ ok: boolean; seq: number }>("/api/mensaje", payload);
     setTimeout(() => this.ev.ack(r.seq, true), 0);
     return r.seq;
   }
 
   async sendPosition(lat: number, lon: number): Promise<void> {
-    await this.req("/api/posicion", { lat, lon });
+    await this.req("/api/posicion", { latitud: lat, longitud: lon, lat, lon });
   }
 
   private updateNode(e: EstadoNodo) {

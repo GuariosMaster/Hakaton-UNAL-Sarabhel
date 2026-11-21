@@ -162,18 +162,25 @@ def handler_factory(nodo: Nodo):
             except ValueError:
                 return self._json(400, {"ok": False, "error": "JSON inválido"})
             if u.path == "/api/mensaje":
-                msg = str(data.get("msg", "")).strip()
+                msg = str(data.get("mensaje") or data.get("cuerpo") or data.get("msg") or "").strip()
+                dest = int(data.get("destino") or data.get("dest") or 1)
+                tipo = str(data.get("tipo") or data.get("tipo_mensaje") or "texto")
+                lat = data.get("latitud") if data.get("latitud") is not None else data.get("lat")
+                lon = data.get("longitud") if data.get("longitud") is not None else data.get("lon")
                 if not msg or len(msg.encode("utf-8")) > MAX_TEXTO:
                     return self._json(400, {"ok": False, "error": f"El mensaje debe tener entre 1 y {MAX_TEXTO} bytes"})
-                if data.get("lat") is not None and data.get("lon") is not None:
-                    nodo.radio("POS", lat=float(data["lat"]), lon=float(data["lon"]))
+                if lat is not None and lon is not None:
+                    nodo.radio("POS", lat=float(lat), lon=float(lon))
                 time.sleep(0.4)  # tiempo en el aire + confirmación RHMesh
                 nodo.radio("MSG", msg)
-                seq = nodo.guardar(nodo.nodo, int(data.get("dest") or 1), msg, True)
-                print(f"[nodo {nodo.nodo}] TX por radio: {msg}")
+                seq = nodo.guardar(nodo.nodo, dest, msg, True)
+                print(f"[nodo {nodo.nodo}] TX ({tipo}) por radio: {msg}")
                 return self._json(200, {"ok": True, "seq": seq})
             if u.path == "/api/posicion":
-                nodo.radio("POS", lat=float(data["lat"]), lon=float(data["lon"]))
+                lat = data.get("latitud") if data.get("latitud") is not None else data.get("lat")
+                lon = data.get("longitud") if data.get("longitud") is not None else data.get("lon")
+                if lat is not None and lon is not None:
+                    nodo.radio("POS", lat=float(lat), lon=float(lon))
                 return self._json(200, {"ok": True})
             self._json(404, {"ok": False})
 

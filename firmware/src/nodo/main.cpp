@@ -106,7 +106,7 @@ static void apiMensajes() {
   responderJson(200, doc);
 }
 
-// POST /api/mensaje  {"msg":"SOS Atrapado","dest":1,"lat":5.06,"lon":-75.50}
+// POST /api/mensaje  {"tipo":"texto","mensaje":"SOS Atrapado","destino":1,"latitud":5.06,"longitud":-75.50}
 static void apiEnviar() {
   JsonDocument in, out;
   if (deserializeJson(in, server.arg("plain"))) {
@@ -114,8 +114,8 @@ static void apiEnviar() {
     out["error"] = "JSON inválido";
     return responderJson(400, out);
   }
-  const char* msg = in["msg"] | "";
-  int dest = in["dest"] | (int)GATEWAY_ADDRESS;
+  const char* msg = in["mensaje"] | in["cuerpo"] | in["msg"] | "";
+  int dest = in["destino"] | in["dest"] | (int)GATEWAY_ADDRESS;
   if (!msg[0] || bytesUtf8(msg) > MAX_TEXTO_LARGO) {
     out["ok"] = false;
     out["error"] = "El mensaje debe tener entre 1 y " + String(MAX_TEXTO_LARGO) + " bytes";
@@ -124,9 +124,21 @@ static void apiEnviar() {
   if (dest < 1 || dest > 254) dest = GATEWAY_ADDRESS;
 
   // Ubicación del teléfono (si la envió la app): trama POS antes del mensaje.
-  if (!in["lat"].isNull() && !in["lon"].isNull()) {
+  double lat = 0.0, lon = 0.0;
+  bool tienePos = false;
+  if (!in["latitud"].isNull() && !in["longitud"].isNull()) {
+    lat = in["latitud"].as<double>();
+    lon = in["longitud"].as<double>();
+    tienePos = true;
+  } else if (!in["lat"].isNull() && !in["lon"].isNull()) {
+    lat = in["lat"].as<double>();
+    lon = in["lon"].as<double>();
+    tienePos = true;
+  }
+
+  if (tienePos) {
     char pos[32];
-    snprintf(pos, sizeof(pos), "%.5f,%.5f", in["lat"].as<double>(), in["lon"].as<double>());
+    snprintf(pos, sizeof(pos), "%.5f,%.5f", lat, lon);
     enviarTrama("POS", pos, GATEWAY_ADDRESS);
   }
 
