@@ -6,6 +6,7 @@ La capa de radio se basa en transceptores **RFM69HCW** ($+20\ \text{dBm}$, cifra
 
 - un **tablero local de energía y alertas** para el puesto de mando, con telemetría de micro-redes solares (voltaje de batería, panel solar, nivel de carga);
 - un **servidor local de mensajería crítica** (Python + Mosquitto MQTT + SQLite) que recibe, organiza y consulta los mensajes de la malla FSK;
+- un **motor de triaje inteligente con IA local (Edge LLM)**: Ollama (`qwen2.5:1.5b`) operando 100% offline, clasificando reportes bajo la taxonomía estándar **EDAN** (Evaluación de Daños y Análisis de Necesidades), extrayendo necesidades tácticas (ambulancias, agua, herramientas) y resúmenes ejecutivos;
 - un **portal Wi-Fi local sin internet** en cada nodo de albergue, para que los brigadistas envíen reportes de texto desde cualquier teléfono sin instalar apps.
 
 El resultado buscado no es solo que los nodos se hablen: es que esa información llegue a quien decide en el territorio, incluso cuando no hay señal ni electricidad.
@@ -14,11 +15,12 @@ El resultado buscado no es solo que los nodos se hablen: es que esa información
 
 | Carpeta | Contenido |
 |---|---|
-| [`app/`](app/) | **App móvil Android propia** con dos modos: *Campo* (portal Wi-Fi local del nodo, botón SOS con GPS, chat) y *Puesto de mando* (alertas, mapa y mensajes desde el servidor por Wi‑Fi local). Ver [app/README.md](app/README.md). |
+| [`app/`](app/) | **App móvil Android propia** con dos modos: *Campo* (portal Wi-Fi local del nodo, botón SOS con GPS, chat) y *Puesto de mando* (alertas, mapa, mensajes y triaje EDAN en vivo desde el servidor por Wi‑Fi local). Ver [app/README.md](app/README.md). |
 | [`web/`](web/) | Página de descarga de la app. Servida por el servidor local en `/descargar` (descarga sin internet). |
-| [`server/`](server/) | Servidor local del puesto de mando: Mosquitto (MQTT) + servicios Python (listener USB del gateway ESP32-S3, mensajería, localización GPS, dashboard con mapa) + SQLite, orquestado con Docker Compose. Ver [server/README.md](server/README.md). |
+| [`server/`](server/) | Servidor local del puesto de mando: Mosquitto (MQTT) + servicios Python (listener USB del gateway ESP32-S3, mensajería, localización GPS, triaje IA con Ollama, dashboard con mapa) + SQLite, orquestado con Docker Compose. Ver [server/README.md](server/README.md). |
 | [`firmware/`](firmware/) | Firmware PlatformIO para **ESP32-S3 (gateway)** y **ESP32 (nodo de albergue)** con RFM69HCW + RadioHead RHMesh: trama FSK, AES-128, portal Wi‑Fi cautivo, API para la app y medición de energía solar. Incluye un nodo simulado para probar sin hardware. Ver [firmware/README.md](firmware/README.md). |
 | [`config/`](config/) | Configuración de referencia de la red FSK (parámetros de radio, trama, protocolo USB y conexiones SPI). La clave AES real no se sube al repositorio. |
+| [`IA_Local_in_Server.md`](IA_Local_in_Server.md) | Arquitectura y especificación técnica del triaje con IA local en el edge (Ollama, Qwen 2.5 1.5B, taxonomía EDAN y piso de seguridad). |
 
 ## Descargar la app
 
@@ -56,22 +58,15 @@ docker compose up -d --build
 
 ## Estado del proyecto
 
-<<<<<<< HEAD
 > **Nota (noviembre 2026):** el servidor, la app y el portal están funcionando y probados en **modo simulado** (nodos FSK simulados y nodo de albergue simulado). El firmware ESP32 compila, pero aún no tenemos el dispositivo físico (nodos ESP32 + RFM69HCW y gateway ESP32-S3), por lo que nada se ha probado todavía con radio real FSK.
-=======
-> **Nota (noviembre 2026):** el gateway RAK4631 ya está conectado por USB en
-> `/dev/ttyACM0` y responde con `meshtastic --port /dev/ttyACM0 --info`. El servidor en
-> [`server/`](server/) está unificado para usar ese gateway y mostrar sus nodos reales;
-> el modo simulado sigue disponible para demos y aparece marcado como **DEMO** en la
-> interfaz. Falta validar la malla con varios nodos en campo: por ahora el gateway solo
-> conoce un nodo, sin posición GPS.
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 
 ### Lo que ya está hecho
 
 - [x] **Arquitectura liviana**: Docker Compose + Mosquitto (MQTT) + servicios Python + SQLite, en lugar de Kubernetes, para ahorrar RAM, CPU y batería en el puesto de mando.
 - [x] **Listener USB** que lee JSON del gateway ESP32-S3 + RFM69HCW por puerto serie nativo (CDC) a 115.200 baudios, con **modo simulado** de nodos ficticios en Manizales para demos sin hardware.
 - [x] **Servicio de mensajería**: guarda el historial y clasifica cada mensaje como crítico, moderado o informativo por palabras clave (SOS, herido, agua…).
+- [x] **Triaje inteligente con IA local en el Edge (Ollama + Qwen 2.5 1.5B)**: clasificación 100% offline según la taxonomía **EDAN** (12 categorías: Búsqueda y Rescate `RES`, Salud `SAL`, Albergues `ALB`, etc.), extracción estructurada de necesidades requeridas y generación de resúmenes operativos, con fallback heurístico y piso de seguridad que nunca degrada una alerta crítica previa.
+- [x] **Visualización EDAN en Web Dashboard y App Móvil**: badges visuales por categoría con iconos, chips de necesidades extraídas y sincronización en caliente mediante Server-Sent Events (SSE).
 - [x] **Servicio de localización GPS**: última posición e historial de cada nodo, batería, y alerta cuando un nodo entra en una zona de riesgo (geocercas).
 - [x] **Telemetría de energía**: voltaje de batería, voltaje del panel y % de carga de cada nodo (vienen en cada trama), panel **Energía** en el dashboard y en la app, y alerta de **batería baja**.
 - [x] **Dashboard web** del puesto de mando: mapa en vivo, alertas, energía, lista de nodos, recorrido de cada nodo y envío de mensajes a la red.
@@ -92,7 +87,6 @@ docker compose up -d --build
 
 ### Lo que falta
 
-<<<<<<< HEAD
 **Necesita el dispositivo físico**
 - [ ] Probar el listener USB con el gateway ESP32-S3 + RFM69HCW real.
 - [ ] Probar la app móvil por el portal Wi-Fi local del nodo con hardware real e instalar el APK en varios teléfonos.
@@ -104,22 +98,6 @@ docker compose up -d --build
 - [ ] **Medir el consumo real** de los nodos y ajustar el dimensionamiento de [ENERGIA.md](ENERGIA.md).
 - [ ] **Buzón** para nodos desconectados (reintentar mensajes cuando el nodo vuelva a tener ruta).
 - [ ] **Mapa offline** de Manizales (mosaicos servidos en local; hoy el mapa usa internet).
-=======
-**Con el gateway conectado**
-- [x] Probar el listener con el gateway Meshtastic real por USB (`/dev/ttyACM0`).
-- [ ] Probar el gateway por Wi‑Fi (TCP) y la malla con más de un nodo.
-- [ ] Aplicar `config/meshtastic.example.yaml` a los nodos.
-- [ ] Pruebas de alcance en Manizales (distancia, RSSI/SNR) y medición del consumo real de cada nodo.
-- [ ] Probar el despliegue con Docker en el servidor Ubuntu.
-
-**Se puede avanzar sin hardware**
-- [ ] **Gestión de alertas**: marcar una alerta como atendida, asignar equipo de rescate y agregar notas.
-- [ ] **Kit de energía**: dimensionar panel, batería y autonomía (nodos y servidor) y mostrarlo en el dashboard.
-- [ ] **Escenario de demo guionizado** (un "sismo" simulado que siempre se desarrolla igual).
-- [ ] **Confirmación de entrega y buzón** para nodos desconectados.
-- [ ] **Mosaicos offline** de Manizales: Leaflet ya se sirve desde `server/sarabhel/static/vendor/`;
-      falta generar y servir los mosaicos por `TILE_URL` (hoy usa OpenStreetMap en línea).
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 - [ ] **Zonas de riesgo oficiales** (POT / Corpocaldas); las actuales son polígonos de ejemplo.
 - [ ] Estadísticas en el dashboard (mensajes por prioridad, tiempos de atención).
 

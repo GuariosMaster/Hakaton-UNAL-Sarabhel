@@ -101,6 +101,24 @@ CREATE TABLE IF NOT EXISTS enlaces (
     PRIMARY KEY (node_id, gateway_id)
 );
 CREATE INDEX IF NOT EXISTS idx_enlaces_gateway ON enlaces (gateway_id);
+
+-- Clasificación semántica EDAN y triaje generado por el agente de IA local (Ollama)
+CREATE TABLE IF NOT EXISTS triage (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_id    INTEGER NOT NULL UNIQUE,
+    node_id       TEXT,
+    categoria     TEXT NOT NULL,          -- RES | SAL | ABA | INF | NAT | SER | ALB | COM | PRO | AMB | LOG | GEN
+    subcategoria  TEXT,
+    prioridad     TEXT NOT NULL,          -- critico | moderado | informativo | pendiente
+    necesidades   TEXT NOT NULL DEFAULT '[]', -- lista JSON de necesidades detectadas
+    resumen       TEXT,
+    modelo        TEXT,
+    fuente        TEXT NOT NULL DEFAULT 'ollama' CHECK (fuente IN ('ollama', 'fallback')),
+    lat           REAL,
+    lon           REAL,
+    ts            INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_triage_ts ON triage (ts);
 """
 
 # Si dos gateways reciben la misma trama, el segundo aviso llega a los pocos segundos.

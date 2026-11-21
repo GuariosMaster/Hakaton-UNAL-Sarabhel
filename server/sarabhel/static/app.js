@@ -223,8 +223,77 @@ function renderEnergy(nodes) {
 }
 
 // ---------- mensajes y alertas ----------
+const EDAN_INFO = {
+  RES: { label: "Rescate", icon: "🆘", cls: "edan-res" },
+  SAL: { label: "Salud", icon: "🏥", cls: "edan-sal" },
+  ABA: { label: "Abastecimiento", icon: "📦", cls: "edan-aba" },
+  INF: { label: "Infraestructura", icon: "🚧", cls: "edan-inf" },
+  NAT: { label: "Fenómeno natural", icon: "🌋", cls: "edan-nat" },
+  SER: { label: "Servicios", icon: "⚡", cls: "edan-ser" },
+  ALB: { label: "Albergue", icon: "⛺", cls: "edan-alb" },
+  COM: { label: "Comunicaciones", icon: "📡", cls: "edan-com" },
+  PRO: { label: "Protección", icon: "🛡️", cls: "edan-pro" },
+  AMB: { label: "Ambiental", icon: "🌱", cls: "edan-amb" },
+  LOG: { label: "Logística", icon: "🚚", cls: "edan-log" },
+  GEN: { label: "General", icon: "ℹ️", cls: "edan-gen" },
+};
+
+function parseNeeds(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (!raw) return [];
+  try {
+    const p = JSON.parse(raw);
+    return Array.isArray(p) ? p : [];
+  } catch {
+    return [];
+  }
+}
+
+function buildTriageElements(categoria, subcategoria, necesidades, resumen, fuente) {
+  const container = el("div", "triage-box");
+  const cat = EDAN_INFO[categoria] || EDAN_INFO.GEN;
+  const badge = el("span", `badge edan ${cat.cls}`);
+  badge.textContent = `${cat.icon} ${categoria} · ${subcategoria || cat.label}`;
+  badge.title = `Clasificación EDAN (${fuente || "ia"})`;
+  container.append(badge);
+
+  const needs = parseNeeds(necesidades);
+  if (needs.length > 0) {
+    const row = el("div", "needs-row");
+    row.append(el("span", "needs-title", "🏷️ Necesidades: "));
+    for (const item of needs) {
+      row.append(el("span", "chip", item));
+    }
+    container.append(row);
+  }
+
+  if (resumen && resumen.trim()) {
+    const resEl = el("div", "ai-resumen");
+    resEl.textContent = `🤖 ${resumen.trim()}`;
+    container.append(resEl);
+  }
+  return container;
+}
+
+function updateMessageTriage(t) {
+  const li = $(`msg-${t.message_id}`);
+  if (!li) return;
+  if (t.prioridad === "critico") {
+    li.className = `critico ${li.classList.contains("out") ? "out" : ""} ${li.classList.contains("clickable") ? "clickable" : ""}`;
+    const pBadge = li.querySelector(".meta .badge");
+    if (pBadge) {
+      pBadge.className = "badge critico";
+      pBadge.textContent = "critico";
+    }
+  }
+  const oldBox = li.querySelector(".triage-box");
+  if (oldBox) oldBox.remove();
+  li.append(buildTriageElements(t.categoria, t.subcategoria, t.necesidades, t.resumen, t.fuente));
+}
+
 function messageItem(m) {
   const li = el("li", `${m.priority} ${m.direction === "out" ? "out" : ""}`);
+  li.id = `msg-${m.id}`;
   const meta = el("div", "meta");
   const who = m.direction === "out"
     ? `Puesto de mando → ${nodeName(m.to_node)}`
@@ -233,6 +302,11 @@ function messageItem(m) {
   left.append(el("b", null, who), " ", el("span", `badge ${m.priority}`, m.priority));
   meta.append(left, el("span", null, ago(m.ts)));
   li.append(meta, el("div", "text", m.text));
+
+  if (m.ai_categoria) {
+    li.append(buildTriageElements(m.ai_categoria, m.ai_subcategoria, m.ai_necesidades, m.ai_resumen, m.ai_fuente));
+  }
+
   if (m.lat != null) {
     li.classList.add("clickable");
     li.title = "Ver en el mapa";
@@ -434,6 +508,7 @@ function connectStream() {
   es.onerror = () => { dot.className = "dot off"; txt.textContent = "Sin conexión con el servidor"; };
   const on = (name, fn) => es.addEventListener(name, (e) => fn(JSON.parse(e.data)));
   on("msg", (m) => addMessage(m));
+  on("triage", (t) => updateMessageTriage(t));
   on("node", (n) => upsertNode(n));
   on("position", (p) => upsertNode({ node_id: p.node_id, lat: p.lat, lon: p.lon, alt: p.alt,
                                      pos_ts: p.ts, risk_zone: p.risk_zone, last_heard: p.ts }));
@@ -449,15 +524,7 @@ function connectStream() {
 async function main() {
   const cfg = await api("/api/config");
   state.maxBytes = cfg.max_text_bytes;
-<<<<<<< HEAD
   state.energy = cfg.energy || null;
-=======
-  if (cfg.demo) {
-    const banner = $("demo-banner");
-    banner.hidden = false;
-    banner.textContent = `DEMO — datos simulados (modo ${cfg.mesh_connection}); no son nodos reales`;
-  }
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
   initMap(cfg);
   initSendForm(cfg.max_text_bytes);
   connectStream();  // antes de cargar historial para no perder eventos

@@ -111,6 +111,13 @@ EV_POSITION = "events/position"
 EV_NODE = "events/node"
 EV_ALERT = "events/alert"
 EV_ALERT_UPDATE = "events/alert_update"
+EV_TRIAGE = "events/triage"
+
+# --- Agente de triaje IA local (Ollama) -------------------------------------
+OLLAMA_URL = _env("OLLAMA_URL", "http://ollama:11434").rstrip("/")
+OLLAMA_MODEL = _env("OLLAMA_MODEL", "qwen2.5:1.5b")
+OLLAMA_TIMEOUT_SECS = float(_env("OLLAMA_TIMEOUT_SECS", "20"))
+TRIAGE_ENABLED = _env("TRIAGE_ENABLED", "1") not in ("0", "false", "no")
 
 
 def setup_logging(service: str) -> logging.Logger:

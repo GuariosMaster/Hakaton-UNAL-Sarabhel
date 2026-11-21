@@ -296,9 +296,31 @@ def get_nodes(_u: dict = Depends(ANY)):
 @app.get("/api/messages")
 def get_messages(limit: int = Query(100, ge=1, le=1000), _u: dict = Depends(ANY)):
     return query(
-        """SELECT m.*, n.long_name FROM messages m
+        """SELECT m.*, n.long_name,
+                  t.categoria AS ai_categoria, t.subcategoria AS ai_subcategoria,
+                  t.prioridad AS ai_prioridad, t.necesidades AS ai_necesidades,
+                  t.resumen AS ai_resumen, t.fuente AS ai_fuente
+           FROM messages m
            LEFT JOIN nodes n ON n.node_id = m.from_node
+           LEFT JOIN triage t ON t.message_id = m.id
            ORDER BY m.ts DESC, m.id DESC LIMIT ?""", (limit,))
+
+
+@app.get("/api/triage")
+def get_triage(limit: int = Query(100, ge=1, le=1000), _u: dict = Depends(ANY)):
+    """Resultados recientes del agente de triaje IA (clasificación EDAN y prioridad para el mapa)."""
+    rows = query(
+        """SELECT t.*, m.text, n.long_name
+           FROM triage t
+           LEFT JOIN messages m ON m.id = t.message_id
+           LEFT JOIN nodes n ON n.node_id = t.node_id
+           ORDER BY t.ts DESC, t.id DESC LIMIT ?""", (limit,))
+    for r in rows:
+        try:
+            r["necesidades"] = json.loads(r["necesidades"]) if r.get("necesidades") else []
+        except ValueError:
+            r["necesidades"] = []
+    return rows
 
 
 @app.get("/api/gateways")

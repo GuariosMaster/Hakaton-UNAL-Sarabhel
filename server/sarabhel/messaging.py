@@ -1,18 +1,10 @@
 """Servicio de Mensajería.
 
-<<<<<<< HEAD
 - red/albergue/+/msg : clasifica prioridad, adjunta la última posición conocida del
                  remitente, guarda en SQLite y emite events/msg (y events/alert
                  si es crítico).
 - app/send     : valida un mensaje del puesto de mando, lo guarda y lo entrega
                  al listener (red/tx/msg) para transmitirlo por radio FSK.
-=======
-- lora/gateway/rx/text : clasifica prioridad, adjunta la última posición conocida del
-                 remitente, guarda en SQLite y emite events/msg (y events/alert
-                 si es crítico).
-- app/send     : valida un mensaje del puesto de mando, lo guarda y lo entrega
-                 al listener (lora/gateway/tx) para transmitirlo por radio.
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 """
 import re
 import threading
@@ -50,9 +42,6 @@ class MessagingService:
         priority = classify(text)
         gateway = p.get("gateway")
         with self.lock, self.conn:
-            if db.is_duplicate_packet(self.conn, p.get("packet_id")):
-                log.debug("Paquete %s ya guardado; descartado", p.get("packet_id"))
-                return
             db.touch_node(self.conn, node, ts)
             if gateway:
                 db.touch_link(self.conn, node, gateway, p.get("rssi"), ts)

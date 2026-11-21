@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { MapView, type MapMarker } from "../../components/MapView";
-import { Composer, Empty, PriorityBadge } from "../../components/ui";
+import { Composer, EdanBadge, Empty, NeedsChips, PriorityBadge } from "../../components/ui";
 import type { AlertState, ServerAlert, ServerNode } from "../../lib/server";
 import { ago, now } from "../../lib/util";
 import { serverNodeName, useCommand } from "../../store/command";
@@ -197,9 +197,20 @@ export function CommandChatScreen() {
               <b>{m.direction === "out"
                 ? `Puesto de mando → ${serverNodeName(nodes, m.to_node)}`
                 : m.long_name || serverNodeName(nodes, m.from_node)}</b>
-              {m.priority !== "informativo" && <PriorityBadge p={m.priority} />}
+              <div className="badges-group">
+                {m.priority !== "informativo" && <PriorityBadge p={m.priority} />}
+                {m.ai_categoria && <EdanBadge code={m.ai_categoria} sub={m.ai_subcategoria} />}
+              </div>
             </div>
             <div className="text">{m.text}</div>
+            {(m.ai_necesidades || (m.ai_resumen && m.ai_resumen !== m.text)) && (
+              <div className="triage-box">
+                {m.ai_necesidades && <NeedsChips needs={m.ai_necesidades} />}
+                {m.ai_resumen && m.ai_resumen !== m.text && (
+                  <div className="ai-resumen">🤖 {m.ai_resumen}</div>
+                )}
+              </div>
+            )}
             <div className="meta small"><span>{ago(m.ts)}</span></div>
           </div>
         ))}

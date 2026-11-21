@@ -49,6 +49,57 @@ export function PriorityBadge({ p }: { p: Priority }) {
   return <span className={`badge ${p}`}>{p}</span>;
 }
 
+export const EDAN_MAP: Record<string, { name: string; icon: string }> = {
+  SAL: { name: "Salud", icon: "🏥" },
+  RES: { name: "Búsqueda y Rescate", icon: "⛑️" },
+  AGU: { name: "Agua y Saneamiento", icon: "💧" },
+  ALI: { name: "Alimentación", icon: "🍲" },
+  ALB: { name: "Albergue Temporal", icon: "⛺" },
+  INF: { name: "Infraestructura", icon: "🏗️" },
+  SEG: { name: "Seguridad y Orden", icon: "🛡️" },
+  COM: { name: "Comunicaciones", icon: "📡" },
+  PRO: { name: "Protección Vulnerables", icon: "🤝" },
+  AMB: { name: "Medio Ambiente", icon: "🌳" },
+  LOG: { name: "Logística y Transporte", icon: "🚚" },
+  GEN: { name: "General / Otro", icon: "ℹ️" },
+};
+
+export function EdanBadge({ code, sub }: { code: string; sub?: string | null }) {
+  const up = (code || "").toUpperCase();
+  const info = EDAN_MAP[up] || { name: code, icon: "🏷️" };
+  const cls = `badge edan edan-${up.toLowerCase()}`;
+  const title = sub ? `${info.name} → ${sub}` : info.name;
+  return (
+    <span className={cls} title={title}>
+      {info.icon} {up}{sub ? ` · ${sub}` : ""}
+    </span>
+  );
+}
+
+export function NeedsChips({ needs }: { needs?: string[] | string | null }) {
+  let list: string[] = [];
+  if (Array.isArray(needs)) {
+    list = needs;
+  } else if (typeof needs === "string" && needs.trim()) {
+    try {
+      const p = JSON.parse(needs);
+      if (Array.isArray(p)) list = p;
+      else list = [needs];
+    } catch {
+      list = needs.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+  if (list.length === 0) return null;
+  return (
+    <div className="needs-row">
+      <span className="needs-title">Necesidades:</span>
+      {list.map((n, i) => (
+        <span key={i} className="chip">{n}</span>
+      ))}
+    </div>
+  );
+}
+
 export function Empty({ children }: { children: ReactNode }) {
   return <p className="empty">{children}</p>;
 }

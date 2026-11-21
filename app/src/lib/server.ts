@@ -31,6 +31,30 @@ export interface ServerMessage {
   lat?: number | null;
   lon?: number | null;
   ts: number;
+  ai_categoria?: string | null;
+  ai_subcategoria?: string | null;
+  ai_prioridad?: string | null;
+  ai_necesidades?: string[] | string | null;
+  ai_resumen?: string | null;
+  ai_fuente?: string | null;
+}
+
+export interface ServerTriage {
+  message_id: number;
+  node_id?: string | null;
+  long_name?: string | null;
+  text: string;
+  categoria: string;
+  categoria_nombre: string;
+  subcategoria: string;
+  prioridad: Priority;
+  necesidades: string[];
+  resumen: string;
+  modelo?: string | null;
+  fuente: "ollama" | "fallback";
+  lat?: number | null;
+  lon?: number | null;
+  ts: number;
 }
 
 export type AlertState = "nueva" | "en_atencion" | "atendida";
@@ -69,6 +93,7 @@ export interface StreamHandlers {
   position: (p: ServerPosition) => void;
   alert: (a: ServerAlert) => void;
   alert_update: (a: ServerAlert) => void;
+  triage?: (t: ServerTriage) => void;
 }
 
 export type Role = "admin" | "mando" | "socorrista";
@@ -203,6 +228,7 @@ export class ServerClient {
     on("position");
     on("alert");
     on("alert_update");
+    if (h.triage) on("triage");
     return () => es.close();
   }
 }

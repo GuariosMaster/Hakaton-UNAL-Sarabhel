@@ -3,6 +3,7 @@ import { create } from "zustand";
 import {
   ServerClient, type AlertState, type ServerAlert, type ServerMessage, type ServerNode,
 } from "../lib/server";
+import type { Priority } from "../lib/priority";
 import { load, notifyAlert, save } from "../lib/util";
 import { useAuth } from "./auth";
 
@@ -84,6 +85,23 @@ export const useCommand = create<CommandState>()((set) => ({
           });
         },
         alert_update: (a) => set((s) => ({ alerts: s.alerts.map((x) => (x.id === a.id ? { ...x, ...a } : x)) })),
+        triage: (t) =>
+          set((s) => ({
+            messages: s.messages.map((m) =>
+              m.id === t.message_id
+                ? {
+                    ...m,
+                    priority: (t.prioridad as Priority) || m.priority,
+                    ai_categoria: t.categoria,
+                    ai_subcategoria: t.subcategoria,
+                    ai_prioridad: t.prioridad,
+                    ai_necesidades: t.necesidades,
+                    ai_resumen: t.resumen,
+                    ai_fuente: t.fuente,
+                  }
+                : m
+            ),
+          })),
       });
     } catch (e) {
       client = undefined;

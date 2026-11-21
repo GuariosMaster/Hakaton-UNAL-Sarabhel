@@ -8,10 +8,11 @@ Servidor del puesto de mando que recibe los mensajes de la red **FSK 915 MHz** (
  Nodos FSK 915 MHz (RFM69HCW + ESP32) ──radio──► Gateway ESP32-S3 ──USB CDC──► Listener
                                                                                │
                                                          Mosquitto (MQTT, pub/sub)
-                                    ┌────────────────────────┼────────────────────────┐
-                              Mensajería               Localización                Dashboard
-                      (prioridad, buzón, envío)  (GPS, historial, geocercas)  (API + mapa en vivo)
-                                    └──────────────► SQLite (WAL) ◄───────────────────┘
+                                    ┌───────────────────────┼────────────────────────┬──────────────────────┐
+                               Mensajería              Localización              Triaje IA              Dashboard
+                       (prioridad, buzón, envío)(GPS, historial, geocercas)  (Ollama Qwen 2.5 1.5B)(API + mapa en vivo)
+                                    │                       │                        │                      │
+                                    └───────────────────────┴────────► SQLite (WAL) ◄┴──────────────────────┘
 ```
 
 | Servicio | Archivo | Qué hace |
@@ -20,7 +21,8 @@ Servidor del puesto de mando que recibe los mensajes de la red **FSK 915 MHz** (
 | **Listener** | `sarabhel/listener.py` | Lee el gateway ESP32-S3 por USB serial (pyserial, 115.200 baudios), traduce cada trama JSON a eventos y los publica en Mosquitto. Escribe en el gateway los mensajes de `red/tx/msg` para transmitirlos por radio. |
 | **Mensajería** | `sarabhel/messaging.py` | Clasifica (crítico / moderado / informativo), adjunta la última posición del remitente, guarda en SQLite y emite alertas. |
 | **Localización** | `sarabhel/location.py` | Guarda posiciones GPS e historial, nombre y energía de cada nodo (batería V, panel V, % carga), detecta entrada a zonas de riesgo y alerta de batería baja. |
-| **Dashboard** | `sarabhel/dashboard.py` + `static/` | API REST, eventos en vivo (SSE) y mapa Leaflet incluido localmente (no usa CDN). |
+| **Triaje IA** | `sarabhel/triage.py` | Motor de triaje inteligente 100% offline: consume `events/msg`, consulta el LLM local (`qwen2.5:1.5b` en Ollama) bajo la taxonomía EDAN, extrae necesidades tácticas, genera resúmenes operativos, persiste en la tabla `triage` y publica `events/triage`. |
+| **Dashboard** | `sarabhel/dashboard.py` + `static/` | API REST, eventos en vivo (SSE) con soporte de badges EDAN y mapa Leaflet incluido localmente (no usa CDN). |
 
 ### ¿Por qué no Kubernetes?
 Un clúster de Kubernetes (aunque sea k3s) consume entre 0,5 y 1 GB de RAM y CPU constante en el plano de control, lo que reduce la autonomía de la batería y agrega piezas que pueden fallar. Con Docker Compose y procesos Python conservamos el mismo diseño de microservicios desacoplados por un broker, pero con unos cientos de MB en total y un solo comando para levantar o reiniciar todo.
@@ -38,7 +40,13 @@ Un clúster de Kubernetes (aunque sea k3s) consume entre 0,5 y 1 GB de RAM y CPU
 
 `{nodo_id}` es `nodo-N` para los nodos de radio (dirección RHMesh N) o `!xxxxxxxx` para los teléfonos
 conectados por Wi‑Fi al puesto de mando (endpoints `/api/device/*`).
-| `events/msg` · `events/position` · `events/node` · `events/alert` | servicios | Datos ya procesados y guardados |
+| `events/msg` · `events/position` · `events/node` · `events/alert` · `events/triage` | servicios | Datos ya procesados, clasificados y guardados |
+
+### Aceleración GPU para Ollama (opcional)
+Si el servidor del puesto de mando cuenta con GPU NVIDIA, se puede activar la aceleración por hardware agregando el archivo override:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+```
 
 ## Puesta en marcha
 

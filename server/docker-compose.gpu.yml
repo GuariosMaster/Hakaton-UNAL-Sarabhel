@@ -1,0 +1,16 @@
+# Override opcional para acelerar Ollama con GPU NVIDIA (p. ej. RTX 4060).
+# Requiere tener instalado nvidia-container-toolkit en Ubuntu.
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+# Con gateway USB + GPU:
+#   MESH_USB_DEVICE=/dev/ttyACM0 docker compose -f docker-compose.yml -f docker-compose.serial.yml -f docker-compose.gpu.yml up -d --build
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

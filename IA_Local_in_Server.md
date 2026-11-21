@@ -100,34 +100,18 @@ Un terremoto puede producir simultáneamente:
 
 Todos estos reportes pueden relacionarse con un mismo evento principal.
 
-# 4. Sistema de prioridades
+# 4. Sistema de prioridades y criterios de triaje
 
-Mantendría los tres niveles que planteaste.
+Se estructuran tres niveles de prioridad operativa (compatibles con los estados `critico`, `moderado` e `informativo` que maneja el backend y la app móvil), más un estado neutro de verificación:
 
-| Prioridad | Color | Descripción |
-| --- | --- | --- |
-| Alta | 🔴 | Riesgo inmediato para la vida o seguridad |
-| Media | 🟡 | Afectación importante que requiere atención prioritaria |
-| Baja | 🟢 | Necesidad o afectación sin riesgo inmediato identificado |
+| Prioridad | Color / Pin en Mapa | Criterio técnico para el LLM | Ejemplos de reportes |
+| --- | --- | --- | --- |
+| **Alta (Crítico)** | 🔴 **Rojo** *(pulso activo)* | **Riesgo vital inminente:** Personas atrapadas, colapso estructural inminente, heridos graves, asfixia o fuego activo. | *"Colapso de casa con 3 personas bajo escombros"*, *"Persona con herida grave y sangrado"* |
+| **Media (Moderado)** | 🟡 **Amarillo** | **Afectación severa sin riesgo de muerte inmediato:** Falta de agua/alimentos en albergues, vías bloqueadas, cortes de servicios básicos. | *"Albergue Coliseo con 180 personas sin agua potable"*, *"Derrumbe bloquea vía principal de acceso"* |
+| **Baja (Informativo)** | 🟢 **Verde** | **Daños menores o reportes de situación:** Fisuras no estructurales, patrullaje sin novedad o necesidades menores. | *"Vivienda con grietas en revoque, familia a salvo"*, *"Situación controlada en punto de encuentro"* |
+| **Pendiente** | ⚪ **Blanco / Gris** | **Información insuficiente o ambigua:** Requiere aclaración o confirmación por parte del operador del PMU. | *"Se escuchó un estruendo fuerte en la parte alta"*, *"Mensaje incompleto..."* |
 
-Añadiría un cuarto estado que no representa prioridad:
-
-**⚪ Pendiente de clasificación.**
-
-Esto es importante porque no todos los reportes tendrán suficiente información.
-
-Por ejemplo:
-
-| Reporte | Clasificación | Prioridad preliminar |
-| --- | --- | --- |
-| Persona atrapada bajo escombros | RES | Alta |
-| Vivienda inundada con personas en su interior | NAT/RES | Alta |
-| Albergue sin agua potable | ALB/ABA | Según disponibilidad y población afectada |
-| Vía secundaria bloqueada | INF | Media |
-| Vivienda con daños menores | INF | Baja |
-| Zona sin comunicación | COM | Por evaluar según aislamiento y riesgo |
-
-Las prioridades son ejemplos de diseño, no instrucciones de despacho. La asignación final debe seguir criterios validados por las autoridades de respuesta.
+Las prioridades son sugeridas preliminarmente por el modelo de IA local a partir de este criterio estricto, pero la asignación final y despacho de recursos siempre puede ser ajustada por el operador del PMU.
 
 # 5. Cómo debería funcionar el agente de IA
 
@@ -206,69 +190,61 @@ El sistema podría detectar:
 
 La IA generaría alertas para revisión de los operadores.
 
-# 6. Diseño del mapa de la aplicación
+# 6. Diseño del mapa de la aplicación y jerarquía visual
 
-Esta sería una de las pantallas principales, adaptar el mapa que se tiene en la app.
+Esta es una de las pantallas principales tanto en la app de socorristas como en el dashboard del PMU. Para evitar la sobrecarga cognitiva en medio de una emergencia (donde 11 categorías con distintos colores harían el mapa ilegible), se adopta una **jerarquía visual de 3 capas**:
 
-El mapa tendría cuatro capas principales:
+1. **Capa 1 — El color del pin (Prioridad / Nivel de Urgencia):**  
+   Responde inmediatamente a *¿qué tan rápido hay que actuar?*
+   - 🔴 **Rojo con pulso:** Prioridad Alta / Crítica (riesgo de vida).
+   - 🟡 **Amarillo:** Prioridad Media / Moderada (afectación severa sin riesgo de muerte inmediato).
+   - 🟢 **Verde:** Prioridad Baja / Informativa (daños menores o reportes estables).
+   - ⚪ **Blanco/Gris:** Pendiente de clasificación o mensaje incompleto.
 
-| Capa | Información |
-| --- | --- |
-| Incidentes | Reportes de emergencias |
-| Socorristas | Ubicación y disponibilidad reportada |
-| Albergues | Capacidad, ocupación y necesidades |
-| PMU | Puestos de coordinación |
+2. **Capa 2 — El ícono/glifo dentro del pin (Categoría funcional EDAN):**  
+   Identifica de un vistazo el tipo de incidente:
+   - 🆘 Cruz médica o persona: Rescate y Salud (`RES`, `SAL`).
+   - 📦 Caja o gota de agua: Abastecimiento (`ABA`).
+   - ⛺ Tienda de campaña / Casa: Albergues (`ALB`).
+   - 🚧 Cono de tránsito o grieta: Infraestructura y Vías (`INF`).
+   - ⚠️ Triángulo de advertencia: Fenómenos naturales y amenazas (`NAT`).
 
-Cada incidente tendría un marcador según su prioridad.
+3. **Capa 3 — Ficha táctica interactiva (al tocar el marcador):**  
+   Muestra el resumen generado por el agente de IA:
 
-Al seleccionar un marcador se abriría una ficha:
-
-text
-
-```
+```text
 INCIDENTE #000152
-
-Categoría: RESCATE
+Categoría: RESCATE (RES)
 Subcategoría: Persona atrapada
-Prioridad: ALTA
+Prioridad: ALTA 🔴
 
-Ubicación:
-Sector Norte
+Resumen IA:
+"Colapso parcial de vivienda de dos niveles. Reportan 3 personas atrapadas bajo escombros en primer piso."
 
-Reportado por:
-Nodo comunitario 015
-
-Hora:
-14:35
-
-Estado:
-Pendiente de verificación
-
-Reportes relacionados:
-3
-
-Última actualización:
-14:42
+Ubicación: Sector Galán (5.068, -75.517)
+Reportado por: Nodo 015 (Comunidad) — 14:35
+Estado: [ Pendiente ] -> Cambiar a: [ En atención ] / [ Atendido ]
+Necesidades detectadas: Equipo de corte, paramédicos, camillas.
+Reportes relacionados: 3 nodos en un radio de 150m.
 ```
 
-Importante: mostrar la ubicación de socorristas y recursos debe estar sujeto a permisos, protección de datos y seguridad operacional. No todos los usuarios necesitan ver todas las ubicaciones.
+Importante: mostrar la ubicación de socorristas y recursos debe estar sujeto a permisos y seguridad operacional; la vista comunitaria solo ve incidentes verificados o estado general.
 
-# 7. Arquitectura tecnológica que propongo
+# 7. Arquitectura tecnológica del servidor local con IA
 
-Para tu proyecto utilizaría:
+Para garantizar funcionamiento sin internet ni nube en un computador portátil del PMU (desde un portátil gama media en batería hasta estaciones con GPU como Ryzen 9 + RTX 4060):
 
-| Componente | Tecnología |
-| --- | --- |
-| Nodos | ESP32-S3/C6 |
-| Radio | RFM69HCW 915 MHz |
-| Red | Mesh multisalto |
-| Gateway | ESP32 + Wi-Fi |
-| Backend | Python + FastAPI |
-| Base de datos | PostgreSQL + PostGIS |
-| Mensajería interna | MQTT |
-| IA local | Ollama |
-| Interfaz | React |
-| Mapas | Leaflet + OpenStreetMap |
+| Componente | Tecnología | Justificación técnica |
+| --- | --- | --- |
+| **Nodos remotos** | ESP32-S3 / C6 / DevKit V1 | Bajo consumo, Wi-Fi local para portal de albergue |
+| **Radio RF** | RFM69HCW 915 MHz (FSK) | Banda libre en Colombia, cifrado AES-128 hardware |
+| **Red** | RadioHead RHMesh | Malla multi-salto con confirmación (ACK) |
+| **Gateway USB** | ESP32-S3 nativo CDC | 115.200 baudios, entrega tramas JSON al servidor |
+| **Backend & Eventos** | FastAPI + Mosquitto (MQTT) | Arquitectura reactiva desacoplada y muy liviana |
+| **Base de datos** | SQLite / Spatialite | Cero configuración, sin consumo extra de RAM en portátil |
+| **Motor de IA Local** | **Ollama** (`qwen2.5:1.5b`) | Inferencia local ultra rápida (300 ms en CPU, < 50 ms con CUDA RTX 4060). Solo ~1,1 GB de RAM/VRAM con salida estricta en JSON. |
+| **Resiliencia / Fallback** | Clasificador por palabras clave | Si Ollama se apaga o tarda, el sistema conmuta automáticamente al clasificador heurístico sin frenar la mensajería. |
+| **Frontend PMU / App** | Leaflet + React / Capacitor | Mapas offline locales y funcionamiento sin conexión |
 
 La arquitectura sería:
 

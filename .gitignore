@@ -1,24 +1,60 @@
-# Configuración real del nodo: contiene la clave privada. Usar config/meshtastic.example.yaml
+# Configuración real del nodo: contiene la clave privada
 config.yaml
+*.key
+*.pem
+*.cert
+*.pfx
+*.p12
 
-# Documentos de trabajo (propuestas del concurso) y archivos temporales de Office
+# Documentos de trabajo y temporales
 *.docx
 ~$*
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# Entornos y claves sensibles
+.env
+.env.*
+!.env.example
+
+# Bases de datos y almacenamiento persistente local
+data/
+server/data/
+*.db
+*.sqlite
+*.sqlite3
 
 # Python / entorno local
 .venv/
+venv/
 __pycache__/
 *.pyc
 .pytest_cache/
-.env
-data/
 
-<<<<<<< HEAD
-# Configuración local de Claude Code
+# Node / Frontend / App
+node_modules/
+dist/
+app/dist/
+.vite/
+
+# APKs y ejecutables compilados
+*.apk
+descargas/*.apk
+server/descargas/*.apk
+
+# Herramientas de desarrollo / IDEs locales
 .claude/
-=======
-# ESP-IDF build artifacts (sdkconfig is intentionally tracked)
+.gemini/
+.idea/
+.vscode/
+.atl/
+.DS_Store
+Thumbs.db
+
+# ESP-IDF / PlatformIO build artifacts (sdkconfig is intentionally tracked)
 firmware/gateway/build/
 firmware/gateway/sdkconfig.old
 firmware/gateway/managed_components/
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
+.pio/

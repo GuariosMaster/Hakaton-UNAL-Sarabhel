@@ -1,22 +1,14 @@
 """Listener: puente entre el gateway ESP32-S3 + RFM69HCW (USB serie) y el broker MQTT.
 
-<<<<<<< HEAD
 Radio -> broker: cada línea JSON del gateway se publica en red/albergue/{nodo}/{msg|tel|pos|info}.
 Broker -> radio: lo que llega a red/tx/msg se escribe en el gateway para transmitirlo.
 Con MESH_CONNECTION=sim se simulan nodos de albergue; con escenario, un sismo guionizado (DEMO.md).
-=======
-Radio -> broker: traduce cada paquete a JSON y lo publica en lora/gateway/rx/<tipo>.
-Broker -> radio: escucha lora/gateway/tx y lo transmite por LoRa.
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 """
-from __future__ import annotations
-
 import queue
 import threading
 import time
 from typing import Any
 
-<<<<<<< HEAD
 from . import config, db
 from .bus import Bus
 from .gateway import encode_tx, parse_line
@@ -38,104 +30,6 @@ def find_ports() -> list[str]:
         raise RuntimeError(f"No se encontró ningún gateway ESP32. Puertos disponibles: {names}. "
                            "Indica los puertos con MESH_USB_DEVICE (separados por coma).")
     return found
-=======
-from . import config
-
-log = config.setup_logging("listener")
-
-
-# --- Traducción de paquetes Meshtastic a eventos JSON -----------------------
-def packet_to_events(packet: dict[str, Any]) -> list[tuple[str, dict]]:
-    """Convierte un paquete decodificado de la librería meshtastic en (tema, payload)."""
-    decoded = packet.get("decoded") or {}
-    portnum = decoded.get("portnum")
-    node = packet.get("fromId")
-    if not node or not portnum:
-        return []  # paquete cifrado para otro canal o sin remitente
-    ts = int(packet.get("rxTime") or time.time())
-    radio = {"rssi": packet.get("rxRssi"), "snr": packet.get("rxSnr")}
-
-    if portnum == "TEXT_MESSAGE_APP" and decoded.get("text"):
-        return [(config.RX_TEXT, {
-            "packet_id": packet.get("id"),
-            "from": node,
-            "to": packet.get("toId"),
-            "channel": packet.get("channel", 0),
-            "text": decoded["text"],
-            "ts": ts,
-            **radio,
-        })]
-
-    if portnum == "POSITION_APP":
-        pos = decoded.get("position") or {}
-        lat, lon = pos.get("latitude"), pos.get("longitude")
-        if lat is None or lon is None:
-            return []
-        return [(config.RX_POSITION, {
-            "packet_id": packet.get("id"),
-            "from": node,
-            "lat": lat,
-            "lon": lon,
-            "alt": pos.get("altitude"),
-            "sats": pos.get("satsInView"),
-            "ts": int(pos.get("time") or ts),
-            **radio,
-        })]
-
-    if portnum == "NODEINFO_APP":
-        user = decoded.get("user") or {}
-        return [(config.RX_NODEINFO, {
-            "packet_id": packet.get("id"),
-            "from": node,
-            "long_name": user.get("longName"),
-            "short_name": user.get("shortName"),
-            "ts": ts,
-        })]
-
-    if portnum == "TELEMETRY_APP":
-        metrics = (decoded.get("telemetry") or {}).get("deviceMetrics")
-        if not metrics:
-            return []
-        return [(config.RX_TELEMETRY, {
-            "packet_id": packet.get("id"),
-            "from": node,
-            "battery": metrics.get("batteryLevel"),
-            "voltage": metrics.get("voltage"),
-            "ts": ts,
-        })]
-
-    return []
-
-
-def nodedb_to_events(nodes: dict[str, dict]) -> list[tuple[str, dict]]:
-    """Vuelca la tabla de nodos que el gateway ya conoce al conectarse."""
-    events = []
-    for node_id, info in (nodes or {}).items():
-        user = info.get("user") or {}
-        ts = int(info.get("lastHeard") or time.time())
-        events.append((config.RX_NODEINFO, {
-            "from": node_id, "long_name": user.get("longName"),
-            "short_name": user.get("shortName"), "ts": ts,
-        }))
-        pos = info.get("position") or {}
-        if pos.get("latitude") is not None and pos.get("longitude") is not None:
-            events.append((config.RX_POSITION, {
-                "from": node_id, "lat": pos["latitude"], "lon": pos["longitude"],
-                "alt": pos.get("altitude"), "ts": int(pos.get("time") or ts),
-            }))
-        # La tabla de nodos del gateway ya trae batería/voltaje: publicarlos al
-        # arrancar evita que el dashboard muestre nodos reales sin telemetría
-        # hasta que llegue el siguiente broadcast (puede tardar 15 min).
-        metrics = info.get("deviceMetrics") or {}
-        if metrics.get("batteryLevel") is not None or metrics.get("voltage") is not None:
-            events.append((config.RX_TELEMETRY, {
-                "from": node_id,
-                "battery": metrics.get("batteryLevel"),
-                "voltage": metrics.get("voltage"),
-                "ts": ts,
-            }))
-    return events
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 
 
 class UsbGateway:
@@ -252,8 +146,6 @@ def build_usb_pool(bus: Bus) -> GatewayPool:
 
 
 def main() -> None:
-    from .bus import Bus  # import diferido: permite importar el módulo sin paho en las pruebas
-
     bus = Bus("listener")
     if config.MESH_CONNECTION == "sim":
         from .simulator import Simulator

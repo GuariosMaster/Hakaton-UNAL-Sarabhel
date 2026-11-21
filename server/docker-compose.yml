@@ -58,6 +58,47 @@ services:
     command: ["python", "-m", "sarabhel.location"]
     environment: *env
 
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-10m}
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:1.5b}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "ollama show \"$$OLLAMA_MODEL\" >/dev/null 2>&1 || ollama pull \"$$OLLAMA_MODEL\""
+    restart: "no"
+
+  triaje:
+    <<: *app
+    command: ["python", "-m", "sarabhel.triage"]
+    environment:
+      <<: *env
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:1.5b}
+      OLLAMA_TIMEOUT_SECS: ${OLLAMA_TIMEOUT_SECS:-20}
+      TRIAGE_ENABLED: ${TRIAGE_ENABLED:-1}
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+
   dashboard:
     <<: *app
     command: ["python", "-m", "sarabhel.dashboard"]
@@ -78,3 +119,4 @@ services:
 volumes:
   datos:
   mosquitto-data:
+  ollama-data:

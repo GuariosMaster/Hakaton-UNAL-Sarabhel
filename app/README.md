@@ -5,7 +5,7 @@ App Android propia del proyecto. Funciona **sin internet ni señal celular**. Ti
 | Modo | Para quién | Cómo se conecta | Qué hace |
 |---|---|---|---|
 | **Campo** | Brigadistas y comunidad | **Wi‑Fi del nodo de albergue** (ESP32 + RFM69HCW) | Botón **SOS** (mantener presionado), mensajes rápidos, chat, mapa y energía de los nodos. Cada SOS va con la **ubicación GPS del teléfono**. |
-| **Puesto de mando** | Coordinadores | **Wi‑Fi local** del puesto de mando, hacia el servidor (`server/`) | Alertas en vivo (SOS, zona de riesgo, batería baja), mapa con zonas de riesgo, mensajes hacia cualquier albergue y panel de **energía**. |
+| **Puesto de mando** | Coordinadores | **Wi‑Fi local** del puesto de mando, hacia el servidor (`server/`) | Alertas en vivo (SOS, zona de riesgo, batería baja), mapa con zonas de riesgo, mensajes y chat con **triaje inteligente EDAN en vivo** (categorías con iconos, necesidades extraídas y resumen IA), y panel de **energía**. |
 
 ```
 Campo:  [App] ─Wi‑Fi "Emergencia …"─► [Nodo de albergue] ~~~ radio FSK 915 MHz (RHMesh) ~~~► [Gateway ESP32-S3] ─USB─► [Servidor]
