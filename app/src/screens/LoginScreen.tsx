@@ -6,8 +6,8 @@ import { useAuth } from "../store/auth";
 type View = "entrar" | "registro";
 
 export function LoginScreen() {
-  const { serverUrl, lastUser } = useAuth();
-  const [view, setView] = useState<View>(lastUser ? "entrar" : "registro");
+  const { serverUrl } = useAuth();
+  const [view, setView] = useState<View>("entrar");
   const [url, setUrl] = useState(serverUrl);
   const [showServer, setShowServer] = useState(false);
   const [estado, setEstado] = useState<{ registro: boolean; admin_inicial: boolean } | null>(null);
@@ -58,9 +58,10 @@ export function LoginScreen() {
           </span>
           <button type="button" className="link" onClick={() => setShowServer((v) => !v)}>⚙️</button>
         </div>
-        {showServer && (
+        {(showServer || online === false) && (
           <label className="field">Dirección del servidor
-            <input value={url} onChange={(e) => setUrl(e.target.value)} inputMode="url" autoCapitalize="off" />
+            <input value={url} onChange={(e) => setUrl(e.target.value)} inputMode="url" autoCapitalize="off"
+                   placeholder="http://172.20.16.58:8080" />
           </label>
         )}
       </div>
