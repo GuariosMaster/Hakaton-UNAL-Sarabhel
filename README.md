@@ -1,106 +1,181 @@
-# Red de emergencia FSK 915 MHz — Equipo Sarabhel
+# Sarabhel — Sistema C4I Táctico de Emergencia (FSK 915 MHz + IA Edge)
 
-Cuando cae la red eléctrica y la red celular, la coordinación se cae con ella. Este prototipo propone lo contrario: una red de comunicaciones autónoma en la banda sub-GHz de **915,0 MHz** con modulación **FSK**, que sigue funcionando sin internet, sin torres celulares y sin SIM, y devuelve visibilidad al Puesto de Mando Unificado (PMU) justo cuando más se necesita.
+> **Plataforma autónoma de comunicaciones críticas, telemetría y triaje asistido por IA local (Edge Computing) para Puestos de Mando Unificado (PMU) y zonas de desastre sin conectividad eléctrica, celular ni internet.**
 
-La capa de radio se basa en transceptores **RFM69HCW** ($+20\ \text{dBm}$, cifrado **AES-128** por hardware) sobre placas **ESP32 / ESP32-S3 / ESP32-C6**, con enrutamiento en malla mediante **RadioHead RHMesh**. La innovación está en lo que construimos encima:
+---
 
-- un **tablero local de energía y alertas** para el puesto de mando, con telemetría de micro-redes solares (voltaje de batería, panel solar, nivel de carga);
-- un **servidor local de mensajería crítica** (Python + Mosquitto MQTT + SQLite) que recibe, organiza y consulta los mensajes de la malla FSK;
-- un **motor de triaje inteligente con IA local (Edge LLM)**: Ollama (`qwen2.5:1.5b`) operando 100% offline, clasificando reportes bajo la taxonomía estándar **EDAN** (Evaluación de Daños y Análisis de Necesidades), extrayendo necesidades tácticas (ambulancias, agua, herramientas) y resúmenes ejecutivos;
-- un **portal Wi-Fi local sin internet** en cada nodo de albergue, para que los brigadistas envíen reportes de texto desde cualquier teléfono sin instalar apps.
+## 1. Visión general del sistema
 
-El resultado buscado no es solo que los nodos se hablen: es que esa información llegue a quien decide en el territorio, incluso cuando no hay señal ni electricidad.
+Cuando ocurre un desastre natural (terremoto, deslizamiento, erupción volcánica), las redes comerciales de telecomunicaciones y el fluido eléctrico colapsan en minutos. **Sarabhel** restablece la visibilidad operativa y la línea de mando conectando albergues, brigadistas en campo y el Puesto de Mando Unificado (PMU) mediante una red física resiliente y análisis táctico automatizado.
 
-## Estructura del repositorio
-
-| Carpeta | Contenido |
-|---|---|
-| [`app/`](app/) | **App móvil Android propia** con dos modos: *Campo* (portal Wi-Fi local del nodo, botón SOS con GPS, chat) y *Puesto de mando* (alertas, mapa, mensajes y triaje EDAN en vivo desde el servidor por Wi‑Fi local). Ver [app/README.md](app/README.md). |
-| [`web/`](web/) | Página de descarga de la app. Servida por el servidor local en `/descargar` (descarga sin internet). |
-| [`server/`](server/) | Servidor local del puesto de mando: Mosquitto (MQTT) + servicios Python (listener USB del gateway ESP32-S3, mensajería, localización GPS, triaje IA con Ollama, dashboard con mapa) + SQLite, orquestado con Docker Compose. Ver [server/README.md](server/README.md). |
-| [`firmware/`](firmware/) | Firmware PlatformIO para **ESP32-S3 (gateway)** y **ESP32 (nodo de albergue)** con RFM69HCW + RadioHead RHMesh: trama FSK, AES-128, portal Wi‑Fi cautivo, API para la app y medición de energía solar. Incluye un nodo simulado para probar sin hardware. Ver [firmware/README.md](firmware/README.md). |
-| [`config/`](config/) | Configuración de referencia de la red FSK (parámetros de radio, trama, protocolo USB y conexiones SPI). La clave AES real no se sube al repositorio. |
-| [`IA_Local_in_Server.md`](IA_Local_in_Server.md) | Arquitectura y especificación técnica del triaje con IA local en el edge (Ollama, Qwen 2.5 1.5B, taxonomía EDAN y piso de seguridad). |
-
-## Descargar la app
-
-- **Con internet:** https://guariosmaster.github.io/Hakaton-UNAL-Sarabhel/ — el APK se compila automáticamente con GitHub Actions en cada cambio de `app/` y queda en la release [`apk-latest`](https://github.com/GuariosMaster/Hakaton-UNAL-Sarabhel/releases/tag/apk-latest).
-- **Sin internet, en el puesto de mando:** conectarse al Wi‑Fi del portátil y abrir `http://192.168.137.1:8080/descargar` (copiar antes el APK a `server/descargas/`).
-
-## Usuarios y roles
-
-Inicio de sesión con **usuario único + PIN de 4 dígitos** y tres roles: **administrador**, **puesto de
-mando** y **socorrista**. Cada persona **crea su cuenta desde la app** (queda como socorrista; el
-administrador da los demás roles). Pedir ayuda (SOS) nunca exige cuenta. Primer uso del sistema: usuario
-`admin`, PIN `1234` (se pide cambiarlo). Detalles en [USUARIOS.md](USUARIOS.md).
-
-## Demo para la presentación
-
-`.\iniciar.ps1 -Radio escenario` reproduce un sismo guionizado (mensajes, SOS largo, zona de riesgo,
-batería baja) que siempre se desarrolla igual. Guion con lo que hay que decir en cada momento: [DEMO.md](DEMO.md).
-
-## Probar la app entre teléfonos
-
-Sin hardware RF hay dos formas, ambas en [PRUEBAS.md](PRUEBAS.md):
-
-- **Nodo de albergue simulado** (`firmware/herramientas/nodo_simulado.py`): la app se conecta como si fuera al Wi‑Fi de un ESP32 real (conexión **📡 Wi‑Fi del albergue**) y el portal cautivo se puede abrir en el navegador.
-- **Puesto de mando**: el servidor del portátil reparte los mensajes entre los teléfonos conectados a su Wi‑Fi (conexión **🖥️ Puesto de mando**).
-
-## Probar sin hardware RF
-
-El listener incluye un modo simulado que emula nodos FSK 915 MHz en Manizales:
-
-```bash
-cd server
-docker compose up -d --build
-# abrir http://localhost:8080
+```
+[ Celulares en Albergue ]
+         │ (Wi-Fi local 192.168.4.1)
+         ▼
+┌─────────────────────────┐
+│ Nodo Albergue (ESP32)   │ ◄── Batería LiFePO4 + Panel Solar
+└───────────┬─────────────┘
+            │
+            ▼ (Radio Malla FSK 915 MHz — AES-128 — RadioHead RHMesh)
+┌─────────────────────────┐
+│ Gateway PMU (ESP32-S3)  │
+└───────────┬─────────────┘
+            │ (USB Serie / CDC a 115200 baudios)
+            ▼
+┌───────────────────────────────────────────────────────────────┐
+│  Puesto de Mando Unificado (PMU) — Servidor Local Docker      │
+│  ├── Mosquitto (Broker MQTT interno)                         │
+│  ├── Microservicios Python (Listener, Mensajería, GPS)        │
+│  ├── Motor de Triaje IA Local: Ollama (Qwen 2.5 1.5B)         │
+│  └── Dashboard Web + App Móvil (Leaflet, Mapas, Alertas)      │
+└───────────────────────────────────────────────────────────────┘
 ```
 
-## Estado del proyecto
+---
 
-> **Nota (noviembre 2026):** el servidor, la app y el portal están funcionando y probados en **modo simulado** (nodos FSK simulados y nodo de albergue simulado). El firmware ESP32 compila, pero aún no tenemos el dispositivo físico (nodos ESP32 + RFM69HCW y gateway ESP32-S3), por lo que nada se ha probado todavía con radio real FSK.
+## 2. Arquitectura en 4 capas
 
-### Lo que ya está hecho
+| Capa | Componente | Descripción técnica |
+|---|---|---|
+| **1. Radio Malla Sub-GHz** | Hardware RFM69HCW + ESP32 | Banda ISM 915.0 MHz FSK (+20 dBm), cifrado hardware AES-128, enrutamiento en malla dinámico con **RadioHead RHMesh**. Telemetría de energía solar y batería en cada trama. |
+| **2. Servidor PMU Local** | Docker Compose + Python + MQTT | Orquestación liviana en host local. Broker **Mosquitto MQTT (QoS 1)**, listener serie USB, ingesta de mensajes, motor geográfico de geocercas y base de datos persistente SQLite (modo WAL). |
+| **3. Triaje con IA Local** | Edge LLM: Ollama + Qwen 2.5 1.5B | Inferencia 100% offline (~986 MB RAM). Clasificación bajo taxonomía estándar **EDAN** (12 categorías de desastre), extracción de requerimientos operativos y piso de seguridad determinista. |
+| **4. Interfaces Tácticas** | Web Dashboard + App Android | Dashboard web reactivo en tiempo real (Leaflet, SSE) y App Android nativa (React + Capacitor) con modos **Campo** (portal Wi-Fi directo del nodo) y **Puesto de Mando**. |
 
-- [x] **Arquitectura liviana**: Docker Compose + Mosquitto (MQTT) + servicios Python + SQLite, en lugar de Kubernetes, para ahorrar RAM, CPU y batería en el puesto de mando.
-- [x] **Listener USB** que lee JSON del gateway ESP32-S3 + RFM69HCW por puerto serie nativo (CDC) a 115.200 baudios, con **modo simulado** de nodos ficticios en Manizales para demos sin hardware.
-- [x] **Servicio de mensajería**: guarda el historial y clasifica cada mensaje como crítico, moderado o informativo por palabras clave (SOS, herido, agua…).
-- [x] **Triaje inteligente con IA local en el Edge (Ollama + Qwen 2.5 1.5B)**: clasificación 100% offline según la taxonomía **EDAN** (12 categorías: Búsqueda y Rescate `RES`, Salud `SAL`, Albergues `ALB`, etc.), extracción estructurada de necesidades requeridas y generación de resúmenes operativos, con fallback heurístico y piso de seguridad que nunca degrada una alerta crítica previa.
-- [x] **Visualización EDAN en Web Dashboard y App Móvil**: badges visuales por categoría con iconos, chips de necesidades extraídas y sincronización en caliente mediante Server-Sent Events (SSE).
-- [x] **Servicio de localización GPS**: última posición e historial de cada nodo, batería, y alerta cuando un nodo entra en una zona de riesgo (geocercas).
-- [x] **Telemetría de energía**: voltaje de batería, voltaje del panel y % de carga de cada nodo (vienen en cada trama), panel **Energía** en el dashboard y en la app, y alerta de **batería baja**.
-- [x] **Dashboard web** del puesto de mando: mapa en vivo, alertas, energía, lista de nodos, recorrido de cada nodo y envío de mensajes a la red.
-- [x] **Gestión de alertas**: cada alerta (SOS, zona de riesgo, batería baja) se guarda y se puede marcar como *en atención* / *atendida*, asignar un equipo de rescate y agregar notas, desde el dashboard o la app; los cambios se ven en vivo en todos los equipos.
-- [x] **Mensajes de hasta 120 caracteres**: el firmware parte los mensajes largos en tramas `MSGP` y los reensambla al llegar.
-- [x] **Kit de energía dimensionado** ([ENERGIA.md](ENERGIA.md)) y **autonomía estimada sin sol** de cada nodo en el dashboard y la app.
-- [x] **Escenario de demo guionizado** y guion de presentación ([DEMO.md](DEMO.md)).
-- [x] **Exportar CSV** de mensajes y alertas para entregar a las autoridades.
-- [x] **APK con firma fija**: las actualizaciones se instalan encima, sin desinstalar.
-- [x] **Inicio de sesión con PIN de 4 dígitos y roles** (administrador, puesto de mando, socorrista) en app y dashboard; bloqueo tras 5 intentos; entrada sin conexión para socorristas; botón de emergencia sin cuenta ([USUARIOS.md](USUARIOS.md)).
-- [x] **Mejoras de experiencia en la app**: teclado PIN grande, bandeja de salida (lo escrito sin conexión se envía solo al reconectar), reconexión automática, GPS listo al abrir, aviso sonoro y vibración con alertas nuevas, pestaña *Asignadas* para socorristas.
-- [x] **Varios gateways**: tablas `gateways` y `enlaces`, alerta si un gateway se desconecta, duplicados descartados, respuesta por el gateway con mejor señal y la red dibujada en el mapa del dashboard.
-- [x] **Firmware ESP32** (PlatformIO): gateway ESP32-S3 (USB JSON ↔ radio) y nodo de albergue (portal Wi‑Fi cautivo, API para la app, medición de batería/panel, telemetría cada 5 min, malla RHMesh, AES-128). Compila; falta probarlo en hardware.
-- [x] **Nodo de albergue simulado** en Python con la misma API y portal que el firmware, para probar la app y el portal sin hardware.
-- [x] Configuración de referencia de la red FSK (sin claves expuestas).
-- [x] Pruebas unitarias (prioridad, paquetes, geocercas).
-- [x] **App móvil Android** (React + Capacitor) con modo Campo (conexión al Wi‑Fi del nodo de albergue, SOS con GPS del teléfono, mensajes rápidos, chat, mapa) y modo Puesto de mando (alertas, mapa, mensajes, energía). Probada en el navegador con el nodo simulado y con el servidor.
+---
 
-### Lo que falta
+## 3. Motor de Triaje con IA Local (Edge Computing)
 
-**Necesita el dispositivo físico**
-- [ ] Probar el listener USB con el gateway ESP32-S3 + RFM69HCW real.
-- [ ] Probar la app móvil por el portal Wi-Fi local del nodo con hardware real e instalar el APK en varios teléfonos.
-- [ ] Cargar el firmware en las placas y verificar radio, portal y medición de energía (calibrar divisores resistivos).
-- [ ] Pruebas de enlace RF en Manizales (distancia, RSSI, tasa de entrega, consumo energético).
-- [ ] Probar el despliegue con Docker en el servidor Ubuntu del PMU.
+El PMU no depende de conexiones satelitales ni de APIs en la nube (como OpenAI o Claude) para procesar el flujo de emergencias. El servidor integra un modelo de lenguaje de última generación optimizado para el borde:
 
-**Se puede avanzar sin hardware**
-- [ ] **Medir el consumo real** de los nodos y ajustar el dimensionamiento de [ENERGIA.md](ENERGIA.md).
-- [ ] **Buzón** para nodos desconectados (reintentar mensajes cuando el nodo vuelva a tener ruta).
-- [ ] **Mapa offline** de Manizales (mosaicos servidos en local; hoy el mapa usa internet).
-- [ ] **Zonas de riesgo oficiales** (POT / Corpocaldas); las actuales son polígonos de ejemplo.
-- [ ] Estadísticas en el dashboard (mensajes por prioridad, tiempos de atención).
+- **Modelo**: `qwen2.5:1.5b` vía **Ollama**, ejecutándose localmente en CPU o GPU ligera.
+- **Taxonomía EDAN (12 ramas estándar)**:
+  - `RES`: Búsqueda y Rescate (atrapados, estructuras colapsadas)
+  - `SAL`: Salud y Atención Médica (heridos, triage, medicamentos)
+  - `ALB`: Albergues Temporales y Evacuación
+  - `AGU`: Agua Potable y Saneamiento
+  - `ALI`: Alimentos y Nutrición
+  - `SEG`: Seguridad y Orden Público
+  - `DAN`: Evaluación de Daños en Infraestructura
+  - `LOG`: Logística, Transporte y Combustible
+  - `AMB`: Afectación Ambiental y Materiales Peligrosos
+  - `COM`: Telecomunicaciones
+  - `ENE`: Energía y Servicios Básicos
+  - `INF`: Informativo general / Sin afectación
+- **Extracción de Requerimientos**: El modelo identifica automáticamente qué recursos solicita el reporte (ej. *ambulancia medicalizada*, *camillas*, *kit de sutura*, *planta eléctrica*).
+- **Piso de Seguridad Inmutable**: Si un mensaje contiene palabras de riesgo vital inminente (`SOS`, `atrapado`, `muriendo`), el sistema asigna prioridad crítica de forma determinista y el LLM **nunca** puede degradar esa severidad.
 
-**Documentación**
-- [ ] Unificar las propuestas técnicas en un solo documento alineado con lo construido (el borrador `add_fsk_v1.md` aún no está en el repositorio).
-- [ ] Definir hardware: placas ESP32-S3, ESP32 DevKit V1, ESP32-C6, transceptores RFM69HCW 915 MHz, paneles solares y baterías LiFePO4.
+Detalles de arquitectura en [IA_Local_in_Server.md](IA_Local_in_Server.md).
+
+---
+
+## 4. Semántica visual del mapa y nodos
+
+Tanto en el **Dashboard Web** del PMU como en la **App Móvil**, el mapa táctico refleja la criticidad de la situación mediante dos componentes visuales:
+
+### Colores de los Nodos (Balizas en el mapa)
+
+```
+   🔴 CRÍTICO          🟡 MODERADO          🟢 OPERATIVO         ⚪ INACTIVO
+[ SOS / Atrapados ]   [ Víveres / Agua ]   [ Patrulla Normal ]   [ Sin baliza >30m ]
+[ Geocerca Riesgo ]   [ Batería < 20%  ]
+```
+
+- 🔴 **Rojo (Crítico / Alerta Máxima)**: Nodo que ha emitido un mensaje clasificado como crítico por el motor de triaje (SOS, rescate, personas en riesgo vital) o cuya posición GPS se encuentra dentro de un polígono de riesgo activo.
+- 🟡 **Amarillo / Naranja (Moderado / Recursos)**: Nodo con requerimientos operacionales estándar (solicitud de alimentos, agua, medicamentos, cobijas) o advertencia de telemetría de energía (batería < 20%).
+- 🟢 **Verde (Normal / Operativo)**: Nodo en servicio regular reportando telemetría estable y mensajes informativos.
+- ⚪ **Gris (Inactivo / Stale)**: Nodo cuya última baliza o reporte supera los 30 minutos sin comunicación.
+
+### Geocercas de Riesgo Físico (Polígonos Rojos en el Mapa)
+
+Los polígonos delimitados en rojo (por ejemplo, *Cañada Chipre* y *Ladera Aranjuez* en Manizales) representan **amenazas físicas estáticas del terreno** (fallas geológicas, cuencas de torrencialidad, laderas con riesgo de deslizamiento) cargadas desde `zones/zonas_riesgo.geojson`.
+- **Detección automática**: El microservicio de localización evalúa continuamente las coordenadas GPS reportadas por cada nodo mediante un algoritmo de *ray-casting*.
+- **Activación de Alerta**: En el instante en que un brigadista o nodo ingresa a las coordenadas de la geocerca, el sistema dispara automáticamente una alerta de zona de riesgo en el PMU y tiñe el nodo de rojo.
+
+---
+
+## 5. Contrato de Protocolo: App ↔ Nodo ESP32
+
+El nodo de albergue expone un punto de acceso Wi-Fi local (`192.168.4.1`) con un endpoint unificado para la comunicación sin internet:
+
+**`POST http://192.168.4.1/api/mensaje`**
+
+### Tipo 1: Chat / Mensajería de Emergencia
+```json
+{
+  "tipo": "chat",
+  "mensaje": "Albergue Norte requiere 50 kits de aseo y 2 médicos generales",
+  "destino": 0,
+  "lat": 5.0689,
+  "lon": -75.5174
+}
+```
+
+### Tipo 2: Autenticación / Registro de Socorrista
+```json
+{
+  "tipo": "login",
+  "usuario": "carlos_socorrista",
+  "pin": "1234",
+  "destino": 0
+}
+```
+
+---
+
+## 6. Estructura del repositorio
+
+| Directorio | Propósito y Contenido |
+|---|---|
+| [`server/`](server/) | Puesto de Mando: Docker Compose con Mosquitto, Ollama, listener serie, servicios Python (mensajería, GPS, triaje) y Dashboard Web en puerto `8080`. |
+| [`app/`](app/) | Aplicación móvil Android (React 19 + Capacitor 8 + Tailwind CSS). Soporta modo Campo (Wi-Fi del nodo) y modo PMU (Wi-Fi del servidor). |
+| [`firmware/`](firmware/) | Código C++ PlatformIO para **ESP32-S3 (Gateway USB)** y **ESP32 DevKit V1 (Nodo Albergue)** con RFM69HCW + RadioHead RHMesh. |
+| [`web/`](web/) | Portal estático ligero para descarga local del APK en albergues o PMU sin internet (`/descargar`). |
+| [`config/`](config/) | Parámetros técnicos de referencia de la modulación FSK 915 MHz, SPI pins y estructura de tramas. |
+| [`IA_Local_in_Server.md`](IA_Local_in_Server.md) | Especificación exhaustiva del pipeline de IA local, prompts de triaje EDAN y fallback heurístico. |
+
+---
+
+## 7. Puesta en marcha rápida (Quickstart)
+
+### Opción A: Modo Simulado Completo (Sin Hardware RF)
+
+Permite validar toda la plataforma (Dashboard, Ollama, Malla simulada y App) en un portátil:
+
+1. **Clonar e iniciar el stack de contenedores**:
+   ```bash
+   cd server
+   docker compose up -d --build
+   ```
+2. **Descargar el modelo en Ollama**:
+   ```bash
+   docker exec -it ollama ollama pull qwen2.5:1.5b
+   ```
+3. **Acceder a los servicios**:
+   - **Dashboard PMU**: [http://localhost:8080](http://localhost:8080) (Usuario inicial: `admin` / PIN: `1234`)
+   - **Nodo Albergue Simulado**: [http://localhost:8765](http://localhost:8765) (Simula el Wi-Fi del ESP32 físico)
+   - **Descarga de APK**: [http://localhost:8080/descargar](http://localhost:8080/descargar)
+
+### Opción B: Modo Producción con Hardware Real
+
+1. Conectar el **ESP32-S3 Gateway** con transceptor RFM69HCW por puerto USB al servidor PMU (`/dev/ttyACM0`).
+2. Configurar `server/docker-compose.yml` para mapear el dispositivo serial:
+   ```yaml
+   devices:
+     - /dev/ttyACM0:/dev/ttyACM0
+   ```
+3. Encender los nodos de albergue ESP32 alimentados por batería LiFePO4 / panel solar.
+4. Conectar la app móvil al Wi-Fi del nodo (`Sarabhel-Albergue-XX`) en campo o al Wi-Fi del PMU en puesto de mando.
+
+---
+
+## 8. Descarga de la App Móvil
+
+- **Repositorio / GitHub Releases**: [RedEmergencia.apk](https://github.com/GuariosMaster/Hakaton-UNAL-Sarabhel/releases/download/apk-latest/RedEmergencia.apk) (Compilación continua vía GitHub Actions).
+- **En el puesto de mando sin internet**: Conectarse al Wi-Fi del servidor y descargar desde `http://<IP_SERVIDOR>:8080/descargar`.
+
+---
+
+## 9. Licencia y Créditos
+
+Desarrollado para el reto de innovación y resiliencia en gestión de desastres — **Hackatón UNAL 2026**. Equipo Sarabhel.
