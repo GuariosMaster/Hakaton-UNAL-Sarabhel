@@ -1,0 +1,81 @@
+menu "RF69 Radio"
+
+config RF69_SPI_SCK_GPIO
+    int "SPI SCK GPIO"
+    default 12
+    range 0 48
+    help
+        GPIO connected to RF69 SCK. Found by the software pin sweep on
+        2026-11-20: SCK=12 MISO=13 MOSI=11 NSS=10 returned RegVersion=0x24.
+        The earlier doc-derived guess had SCK and MISO swapped.
+
+config RF69_SPI_MISO_GPIO
+    int "SPI MISO GPIO"
+    default 13
+    range 0 48
+    help
+        GPIO connected to RF69 MISO. Found by the software pin sweep on
+        2026-11-20: SCK=12 MISO=13 MOSI=11 NSS=10 returned RegVersion=0x24.
+        The earlier doc-derived guess had SCK and MISO swapped.
+
+config RF69_SPI_MOSI_GPIO
+    int "SPI MOSI GPIO"
+    default 11
+    range 0 48
+    help
+        GPIO connected to RF69 MOSI. Found by the software pin sweep on
+        2026-11-20: SCK=12 MISO=13 MOSI=11 NSS=10 returned RegVersion=0x24.
+
+config RF69_SPI_NSS_GPIO
+    int "SPI NSS (chip select) GPIO"
+    default 10
+    range 0 48
+    help
+        GPIO connected to RF69 NSS. Found by the software pin sweep on
+        2026-11-20: SCK=12 MISO=13 MOSI=11 NSS=10 returned RegVersion=0x24.
+
+config RF69_DIO0_GPIO
+    int "RF69 DIO0 GPIO"
+    default 2
+    range 0 48
+    help
+        GPIO connected to RF69 DIO0. Proposed from CircuitDigest Arduino D2
+        mapped to ESP32-S3-DevKitC-1 GPIO2 (J3 pin 5). UNVERIFIED wiring.
+
+config RF69_RESET_GPIO
+    int "RF69 RESET GPIO"
+    default 15
+    range 0 48
+    help
+        GPIO connected to RF69 RST. CircuitDigest leaves RST unconnected,
+        so this is a free GPIO choice (J1 pin 8). UNVERIFIED wiring.
+
+config RF69_FREQ_HZ
+    int "Carrier frequency in Hz"
+    default 915000000
+    range 300000000 1000000000
+    help
+        Requested carrier frequency. 915 MHz is the regional ISM band.
+
+config RF69_BITRATE_BPS
+    int "FSK bitrate in bits per second"
+    default 4800
+    range 1200 300000
+    help
+        Unverified candidate. Must match the peer RFM69HC nodes.
+
+config RF69_FDEV_HZ
+    int "FSK frequency deviation in Hz"
+    default 5000
+    range 600 200000
+    help
+        Unverified candidate. Must match the peer RFM69HC nodes.
+
+config RF69_APPLY_CONFIG
+    bool "Apply FSK configuration after the version probe"
+    default n
+    help
+        Disabled by default. The first boot must only identify the chip.
+        Enable it once the wiring and the peer air parameters are confirmed.
+
+endmenu

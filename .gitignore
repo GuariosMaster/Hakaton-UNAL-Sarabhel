@@ -13,5 +13,12 @@ __pycache__/
 .env
 data/
 
+<<<<<<< HEAD
 # Configuración local de Claude Code
 .claude/
+=======
+# ESP-IDF build artifacts (sdkconfig is intentionally tracked)
+firmware/gateway/build/
+firmware/gateway/sdkconfig.old
+firmware/gateway/managed_components/
+>>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9

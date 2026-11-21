@@ -1,5 +1,6 @@
 """Servicio de Localización (GPS).
 
+<<<<<<< HEAD
 - red/albergue/+/pos  : guarda historial y última posición, revisa geocercas de
                         zonas de riesgo y emite events/position (+ events/alert al
                         entrar en una zona).
@@ -7,6 +8,13 @@
 - red/albergue/+/tel  : energía (batería V, panel V, % de carga) y alerta de batería baja.
 - red/gateway/+/estado: estado de cada gateway (tabla gateways) y alerta si se desconecta.
 Cada trama registra en la tabla enlaces qué gateway escuchó al nodo y con qué señal.
+=======
+- lora/gateway/rx/position  : guarda historial y última posición, revisa geocercas de
+                      zonas de riesgo y emite events/position (+ events/alert al
+                      entrar en una zona).
+- lora/gateway/rx/nodeinfo  : nombre del nodo.
+- lora/gateway/rx/telemetry : batería / voltaje.
+>>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 """
 import threading
 import time

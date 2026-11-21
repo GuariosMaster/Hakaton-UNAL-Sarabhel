@@ -56,7 +56,16 @@ docker compose up -d --build
 
 ## Estado del proyecto
 
+<<<<<<< HEAD
 > **Nota (noviembre 2026):** el servidor, la app y el portal están funcionando y probados en **modo simulado** (nodos FSK simulados y nodo de albergue simulado). El firmware ESP32 compila, pero aún no tenemos el dispositivo físico (nodos ESP32 + RFM69HCW y gateway ESP32-S3), por lo que nada se ha probado todavía con radio real FSK.
+=======
+> **Nota (noviembre 2026):** el gateway RAK4631 ya está conectado por USB en
+> `/dev/ttyACM0` y responde con `meshtastic --port /dev/ttyACM0 --info`. El servidor en
+> [`server/`](server/) está unificado para usar ese gateway y mostrar sus nodos reales;
+> el modo simulado sigue disponible para demos y aparece marcado como **DEMO** en la
+> interfaz. Falta validar la malla con varios nodos en campo: por ahora el gateway solo
+> conoce un nodo, sin posición GPS.
+>>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 
 ### Lo que ya está hecho
 
@@ -83,6 +92,7 @@ docker compose up -d --build
 
 ### Lo que falta
 
+<<<<<<< HEAD
 **Necesita el dispositivo físico**
 - [ ] Probar el listener USB con el gateway ESP32-S3 + RFM69HCW real.
 - [ ] Probar la app móvil por el portal Wi-Fi local del nodo con hardware real e instalar el APK en varios teléfonos.
@@ -94,6 +104,22 @@ docker compose up -d --build
 - [ ] **Medir el consumo real** de los nodos y ajustar el dimensionamiento de [ENERGIA.md](ENERGIA.md).
 - [ ] **Buzón** para nodos desconectados (reintentar mensajes cuando el nodo vuelva a tener ruta).
 - [ ] **Mapa offline** de Manizales (mosaicos servidos en local; hoy el mapa usa internet).
+=======
+**Con el gateway conectado**
+- [x] Probar el listener con el gateway Meshtastic real por USB (`/dev/ttyACM0`).
+- [ ] Probar el gateway por Wi‑Fi (TCP) y la malla con más de un nodo.
+- [ ] Aplicar `config/meshtastic.example.yaml` a los nodos.
+- [ ] Pruebas de alcance en Manizales (distancia, RSSI/SNR) y medición del consumo real de cada nodo.
+- [ ] Probar el despliegue con Docker en el servidor Ubuntu.
+
+**Se puede avanzar sin hardware**
+- [ ] **Gestión de alertas**: marcar una alerta como atendida, asignar equipo de rescate y agregar notas.
+- [ ] **Kit de energía**: dimensionar panel, batería y autonomía (nodos y servidor) y mostrarlo en el dashboard.
+- [ ] **Escenario de demo guionizado** (un "sismo" simulado que siempre se desarrolla igual).
+- [ ] **Confirmación de entrega y buzón** para nodos desconectados.
+- [ ] **Mosaicos offline** de Manizales: Leaflet ya se sirve desde `server/sarabhel/static/vendor/`;
+      falta generar y servir los mosaicos por `TILE_URL` (hoy usa OpenStreetMap en línea).
+>>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 - [ ] **Zonas de riesgo oficiales** (POT / Corpocaldas); las actuales son polígonos de ejemplo.
 - [ ] Estadísticas en el dashboard (mensajes por prioridad, tiempos de atención).
 

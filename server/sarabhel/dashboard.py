@@ -34,7 +34,8 @@ class Hub:
 
     def forward(self, topic: str, payload: dict) -> None:  # hilo de paho
         if self.loop is not None:
-            self.loop.call_soon_threadsafe(self._fanout, topic.split("/", 1)[1], payload)
+            kind = config.SSE_KINDS.get(topic, topic.split("/", 1)[-1])
+            self.loop.call_soon_threadsafe(self._fanout, kind, payload)
 
     def _fanout(self, kind: str, payload: dict) -> None:
         for q in list(self.clients):
@@ -85,9 +86,14 @@ async def lifespan(_app: FastAPI):
     get_auth()            # crea las tablas de usuarios y el admin inicial
     hub.loop = asyncio.get_running_loop()
     bus.subscribe("events/#", hub.forward)
+<<<<<<< HEAD
     # Conectar al broker en segundo plano: la web (y la descarga de la app) debe
     # responder aunque el broker todavía no esté arriba.
     threading.Thread(target=bus.start, daemon=True, name="mqtt-connect").start()
+=======
+    bus.subscribe(config.EV_NODE, hub.forward)
+    await asyncio.to_thread(bus.start)
+>>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
     yield
     bus.stop()
 
@@ -280,9 +286,16 @@ def device_position(req: DevicePosition, _u: dict = Depends(ANY)):
 
 @app.get("/api/config")
 def get_config():
+<<<<<<< HEAD
     return {"tile_url": config.TILE_URL, "center": config.MAP_CENTER, "max_text_bytes": config.MAX_TEXT_BYTES,
             "energy": {"battery_wh": config.NODE_BATTERY_WH, "consumption_w": config.NODE_CONSUMPTION_W,
                        "dod": config.BATTERY_DOD, "low_pct": config.LOW_BATTERY_PCT}}
+=======
+    return {"tile_url": config.TILE_URL, "center": config.MAP_CENTER,
+            "max_text_bytes": config.MAX_TEXT_BYTES,
+            "mesh_connection": config.MESH_CONNECTION,
+            "demo": config.is_demo_mode()}
+>>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 
 
 @app.get("/api/nodes")

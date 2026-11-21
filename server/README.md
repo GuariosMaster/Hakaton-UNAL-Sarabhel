@@ -16,10 +16,17 @@ Servidor del puesto de mando que recibe los mensajes de la red **FSK 915 MHz** (
 
 | Servicio | Archivo | Qué hace |
 |---|---|---|
+<<<<<<< HEAD
 | **Broker** | Mosquitto | Bus publicación/suscripción con persistencia (QoS 1). |
 | **Listener** | `sarabhel/listener.py` | Lee el gateway ESP32-S3 por USB serial (pyserial, 115.200 baudios), traduce cada trama JSON a eventos y los publica en Mosquitto. Escribe en el gateway los mensajes de `red/tx/msg` para transmitirlos por radio. |
 | **Mensajería** | `sarabhel/messaging.py` | Clasifica (crítico / moderado / informativo), adjunta la última posición del remitente, guarda en SQLite y emite alertas. |
 | **Localización** | `sarabhel/location.py` | Guarda posiciones GPS e historial, nombre y energía de cada nodo (batería V, panel V, % carga), detecta entrada a zonas de riesgo y alerta de batería baja. |
+=======
+| **Broker** | `mosquitto/mosquitto.conf` | Mosquitto: bus publicación/suscripción con persistencia (QoS 1). |
+| **Listener** | `sarabhel/listener.py` | Lee el gateway (serie, TCP o simulado), traduce paquetes a JSON y los publica. Transmite por radio lo que llega a `lora/gateway/tx`. |
+| **Mensajería** | `sarabhel/messaging.py` | Clasifica (crítico / moderado / informativo), adjunta la última posición del remitente, guarda y emite alertas. |
+| **Localización** | `sarabhel/location.py` | Guarda posiciones GPS e historial, nombre y batería de cada nodo, detecta entrada a zonas de riesgo. |
+>>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 | **Dashboard** | `sarabhel/dashboard.py` + `static/` | API REST, eventos en vivo (SSE) y mapa Leaflet incluido localmente (no usa CDN). |
 
 ### ¿Por qué no Kubernetes?
@@ -29,6 +36,7 @@ Un clúster de Kubernetes (aunque sea k3s) consume entre 0,5 y 1 GB de RAM y CPU
 
 | Tema | Publica | Contenido |
 |---|---|---|
+<<<<<<< HEAD
 | `red/albergue/{nodo_id}/msg` | listener | Mensaje de texto recibido por RF FSK |
 | `red/albergue/{nodo_id}/tel` | listener | Telemetría energética (batería, panel, carga) |
 | `red/albergue/{nodo_id}/pos` | listener | Posición GPS del nodo |
@@ -39,6 +47,15 @@ Un clúster de Kubernetes (aunque sea k3s) consume entre 0,5 y 1 GB de RAM y CPU
 `{nodo_id}` es `nodo-N` para los nodos de radio (dirección RHMesh N) o `!xxxxxxxx` para los teléfonos
 conectados por Wi‑Fi al puesto de mando (endpoints `/api/device/*`).
 | `events/msg` · `events/position` · `events/node` · `events/alert` | servicios | Datos ya procesados y guardados |
+=======
+| `lora/gateway/rx/text` · `/position` · `/nodeinfo` · `/telemetry` | listener | Paquete de radio en JSON |
+| `lora/gateway/tx` | mensajería | `{text, to}` para transmitir |
+| `lora/nodes` | localización | Estado de un nodo ya guardado |
+| `app/send` | dashboard | Mensaje escrito en el puesto de mando |
+| `events/msg` · `events/position` · `events/alert` | servicios | Datos ya procesados y guardados |
+
+Los mensajes entrantes se deduplican por `packet_id` de Meshtastic, así que un reintento de la malla no genera dos registros. El dashboard muestra una banda **DEMO** cuando el listener corre en modo simulado; en modo `serial`/`tcp` los nodos y telemetría son los que reporta el gateway.
+>>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 
 ## Puesta en marcha
 
@@ -46,17 +63,42 @@ conectados por Wi‑Fi al puesto de mando (endpoints `/api/device/*`).
 
 ```bash
 cp .env.example .env
+<<<<<<< HEAD
 # Demo sin hardware RF (modo simulado):
 docker compose up -d --build
 # Gateway ESP32-S3 conectado por USB nativo (aparece como /dev/ttyACM0):
 MESH_USB_DEVICE=/dev/ttyACM0 docker compose -f docker-compose.yml -f docker-compose.serial.yml up -d --build
 # Variables relevantes: MESH_CONNECTION=usb, MESH_USB_DEVICE, MESH_USB_BAUD=115200
+=======
+# Demo sin radio (la interfaz marca los datos como DEMO):
+docker compose up -d --build
+# Gateway RAK conectado por USB (en este puesto: /dev/ttyACM0):
+docker compose -f docker-compose.yml -f docker-compose.serial.yml up -d --build
+# Si el puerto aparece con otro nombre o el grupo cambia:
+MESH_SERIAL_DEVICE=/dev/ttyACM0 MESH_SERIAL_GID=$(stat -c %g /dev/ttyACM0) \
+  docker compose -f docker-compose.yml -f docker-compose.serial.yml up -d --build
+# Gateway por Wi-Fi:
+MESH_CONNECTION=tcp MESH_TCP_HOST=192.168.4.1 docker compose up -d --build
+>>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 ```
+
+El puerto USB solo lo abre el listener. Si `docker compose logs listener` muestra error de
+permisos, revisar `MESH_SERIAL_GID` con `stat -c %g /dev/ttyACM0`. Mosquitto no publica
+ningún puerto al host: solo existe dentro de la red de Compose.
 
 Abrir `http://<ip-del-servidor>:8080` desde cualquier equipo de la red local.
 Ver los registros: `docker compose logs -f listener mensajeria`.
 
+<<<<<<< HEAD
 ### B) Windows sin Docker (demo en el portátil)
+=======
+### B) Windows sin Docker (desarrollo / demo en el portátil)
+
+Docker Desktop en Windows **no puede pasar puertos COM** al contenedor, así que en
+Windows se ejecuta todo con Python. Se necesita un broker MQTT: instalar
+[Mosquitto para Windows](https://mosquitto.org/download/), o para pruebas instalar
+`amqtt` (pure Python) junto con los requisitos del paso siguiente.
+>>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 
 ```powershell
 .\iniciar.ps1                     # nodos FSK simulados
@@ -89,14 +131,26 @@ Sin `MESH_CONNECTION` el listener arranca en **modo simulado**: nodos ficticios 
 
 ### Pruebas
 
+<<<<<<< HEAD
 ```bash
 .venv/bin/python -m pytest -q tests
 ```
 
 ## Configuración de los nodos RFM69HCW
+=======
+```powershell
+.venv\Scripts\python -m unittest discover -s tests -v
+```
+
+Desde la raíz del repositorio: `python3 -m unittest discover -s server/tests -v`.
+Las pruebas usan solo la biblioteca estándar: no requieren pytest ni un broker MQTT.
+
+## Configuración del nodo Meshtastic
+>>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 
 El firmware está en [`firmware/`](../firmware/) y los parámetros en [`firmware/include/config.h`](../firmware/include/config.h). Cada nodo (ESP32 + RFM69HCW) y el gateway (ESP32-S3 + RFM69HCW) deben compartir los mismos parámetros RF:
 
+<<<<<<< HEAD
 | Parámetro | Valor | Justificación |
 |---|---|---|
 | Frecuencia portadora | 915,0 MHz | Banda ISM libre en Colombia |
@@ -151,6 +205,17 @@ sigue con la simulación normal. Guion en [DEMO.md](../DEMO.md).
 ## Descarga de la app sin internet
 
 El dashboard sirve la página de descarga en `/descargar` y el APK en `/descargar/RedEmergencia.apk`. Antes del evento, copiar el APK a `server/descargas/` (ver `descargas/LEEME.md`). Los teléfonos conectados al Wi‑Fi del puesto de mando instalan la app abriendo `http://192.168.1.10:8080/descargar`. La página funciona aunque el broker MQTT esté apagado.
+=======
+- `module_config.mqtt.enabled: false` en cada nodo (ver `../config/meshtastic.example.yaml`: así el gateway
+  entrega los paquetes al Listener por USB y no los publica en la nube). Nunca versionar `config.yaml`,
+  porque puede contener claves.
+- `config.position.gpsMode: ENABLED` en los nodos con GPS; en los demás, compartir el GPS del celular desde la app.
+  Un nodo sin posición aparece en la lista como «sin GPS», sin coordenadas inventadas.
+- Mensajes rápidos (`canned_messages`) de emergencia, por ejemplo:
+  `SOS|Herido|Atrapado|Necesito agua|Necesito medicina|Estoy bien|Evacuando`.
+- Mantener `bluetooth.mode: RANDOM_PIN` (la referencia ya no usa el PIN fijo `123456`) y regenerar
+  las claves si un `config.yaml` llegó a compartirse. La región de Colombia es `ANZ`.
+>>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 
 ## Mapa offline
 
@@ -167,7 +232,13 @@ Sin mosaicos el mapa sigue funcionando (nodos, recorridos y zonas se ven sobre f
 
 ## Seguridad
 
+<<<<<<< HEAD
 - Mosquitto solo escucha en `127.0.0.1`; el único puerto expuesto a la LAN es el dashboard (8080).
 - El dashboard no tiene autenticación: está pensado para la red cerrada del puesto de mando. Si la red Wi‑Fi del puesto es abierta, agregar autenticación o un proxy con contraseña.
+=======
+- Mosquitto no expone puertos al host; el único puerto publicado es el dashboard (8080).
+- El dashboard no tiene autenticación: está pensado para la red cerrada del puesto de mando.
+  Si la red Wi-Fi del puesto es abierta, agregar autenticación o un proxy con contraseña.
+>>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 - Los contenedores corren con un usuario sin privilegios.
 - El cifrado AES-128 del RFM69HCW protege las tramas por aire; la clave debe ser idéntica en todos los nodos y el gateway.

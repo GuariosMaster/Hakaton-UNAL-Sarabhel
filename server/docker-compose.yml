@@ -13,6 +13,8 @@ x-env: &env
   DB_PATH: /data/sarabhel.db
   TZ: America/Bogota
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  # Compartido con el dashboard para marcar la UI cuando los datos son simulados.
+  MESH_CONNECTION: ${MESH_CONNECTION:-sim}
 
 x-app: &app
   build: .
@@ -28,9 +30,7 @@ services:
   mosquitto:
     image: eclipse-mosquitto:2.0.20
     restart: unless-stopped
-    ports:
-      # Solo accesible desde el propio servidor (el listener nativo de Windows lo usa).
-      - "127.0.0.1:1883:1883"
+    # Sin ports: el broker solo existe dentro de la red de Compose.
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto-data:/mosquitto/data
