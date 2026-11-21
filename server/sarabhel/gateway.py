@@ -7,6 +7,10 @@ Gateway -> servidor: una línea JSON por trama recibida por radio, por ejemplo
     {"nodo":2,"tipo":"INFO","nombre":"Albergue Coliseo","rssi":-70}
 Las líneas que no son JSON (mensajes de depuración del firmware) se ignoran.
 
+Las líneas propias del gateway (su nombre y la energía del kit del puesto de mando) llevan
+"gw":1 y no traen rssi; se publican como estado del gateway, no como un nodo:
+    {"gw":1,"nodo":1,"tipo":"TEL","bat":12.9,"panel":0.0,"carga":64}
+
 Servidor -> gateway: una línea JSON por mensaje a transmitir
     {"dest":2,"msg":"Brigada en camino"}      (dest 255 = todos los nodos conocidos)
 """
@@ -24,8 +28,9 @@ def _num(value: Any) -> float | None:
         return None
 
 
-def parse_line(line: str) -> list[tuple[str, dict]]:
-    """Convierte una línea del gateway en eventos (tema MQTT, payload)."""
+def parse_line(line: str, gateway_id: str = "gw-1") -> list[tuple[str, dict]]:
+    """Convierte una línea del gateway `gateway_id` en eventos (tema MQTT, payload).
+    Cada evento de un nodo lleva "gateway" para saber por dónde entró (enlaces y duplicados)."""
     line = line.strip()
     if not line.startswith("{"):
         return []
@@ -37,10 +42,21 @@ def parse_line(line: str) -> list[tuple[str, dict]]:
     if not 1 <= address <= 254:
         return []
 
-    node = config.node_id(address)
     tipo = str(d.get("tipo", "MSG")).upper()
     ts = int(time.time())
     rssi = _num(d.get("rssi"))
+
+    # Línea propia del gateway: estado del gateway, no de un nodo.
+    if d.get("gw") or (rssi is None and tipo in ("INFO", "TEL") and address == config.GATEWAY_ADDRESS):
+        carga = _num(d.get("carga"))
+        return [(config.gw_topic(gateway_id), {
+            "gateway_id": gateway_id, "direccion": address, "estado": "conectado",
+            "nombre": str(d["nombre"])[:40] if d.get("nombre") else None,
+            "voltage": _num(d.get("bat")), "panel_v": _num(d.get("panel")),
+            "battery": int(carga) if carga is not None else None, "ts": ts,
+        })]
+
+    node = config.node_id(address)
     events: list[tuple[str, dict]] = []
 
     # Cada trama del nodo trae su estado de energía (TIPO|BAT_V|PANEL_V|CARGA_PCT|...).
@@ -75,6 +91,8 @@ def parse_line(line: str) -> list[tuple[str, dict]]:
                 "from": node, "lat": lat, "lon": lon, "alt": _num(d.get("alt")), "ts": ts, "rssi": rssi,
             }))
 
+    for _topic, payload in events:
+        payload["gateway"] = gateway_id
     return events
 
 

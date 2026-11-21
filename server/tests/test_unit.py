@@ -71,3 +71,50 @@ def test_valid_coords():
     assert not geo.valid_coords(0, 0)
     assert not geo.valid_coords(None, 1)
     assert not geo.valid_coords(91, 0)
+
+
+def test_lineas_propias_del_gateway():
+    # Con "gw":1 o sin rssi desde la dirección 1: es el estado del gateway, no un nodo
+    [(topic, p)] = parse_line('{"gw":1,"nodo":1,"tipo":"TEL","bat":12.9,"panel":0.0,"carga":64}', "gw-2")
+    assert topic == "red/gateway/gw-2/estado" and p["battery"] == 64 and p["estado"] == "conectado"
+    [(topic, p)] = parse_line('{"nodo":1,"tipo":"INFO","nombre":"Puesto UNAL"}', "gw-1")
+    assert topic == "red/gateway/gw-1/estado" and p["nombre"] == "Puesto UNAL"
+    # Las tramas de nodos llevan el gateway por el que entraron
+    events = parse_line('{"nodo":3,"tipo":"MSG","msg":"hola","rssi":-80}', "gw-2")
+    assert all(p["gateway"] == "gw-2" for _, p in events)
+
+
+def test_tablas_gateways_y_enlaces(tmp_path, monkeypatch):
+    from sarabhel import db
+    monkeypatch.setattr(config, "DB_PATH", str(tmp_path / "gw.db"))
+    conn = db.connect()
+    with conn:
+        db.upsert_gateway(conn, {"gateway_id": "gw-1", "estado": "conectado", "nombre": "Puesto UNAL"})
+        db.upsert_gateway(conn, {"gateway_id": "gw-2", "estado": "conectado"})
+        db.touch_link(conn, "nodo-6", "gw-1", -98, db.now())
+        db.touch_link(conn, "nodo-6", "gw-2", -70, db.now())
+    assert db.best_gateway(conn, "nodo-6") == "gw-2"          # mejor señal
+    with conn:
+        db.upsert_gateway(conn, {"gateway_id": "gw-2", "estado": "desconectado"})
+    assert db.best_gateway(conn, "nodo-6") == "gw-1"          # el otro se cayó
+    assert db.best_gateway(conn, "nodo-9") is None             # nadie lo oye
+
+
+def test_simuladores_publican_tramas():
+    """Regresión: el simulador normal y el escenario deben poder emitir tramas por sus gateways."""
+    from sarabhel.simulator import Escenario, Simulator
+
+    class BusFalso:
+        def __init__(self):
+            self.temas = []
+
+        def publish(self, topic, payload, qos=1):
+            self.temas.append(topic)
+
+    for cls in (Simulator, Escenario):
+        bus = BusFalso()
+        sim = cls(bus)
+        sim.gateway_status()
+        sim._emit({"nodo": 6, "tipo": "MSG", **sim._energy(6), "msg": "prueba"})
+        assert "red/gateway/gw-1/estado" in bus.temas
+        assert bus.temas.count("red/albergue/nodo-6/msg") == 2  # lo oyen los dos gateways simulados

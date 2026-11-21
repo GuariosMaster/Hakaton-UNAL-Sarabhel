@@ -37,7 +37,7 @@ export type AlertState = "nueva" | "en_atencion" | "atendida";
 
 export interface ServerAlert {
   id: number;
-  type: "mensaje_critico" | "zona_riesgo" | "bateria_baja";
+  type: "mensaje_critico" | "zona_riesgo" | "bateria_baja" | "gateway_desconectado";
   node_id?: string | null;
   from_node?: string;
   estado: AlertState;

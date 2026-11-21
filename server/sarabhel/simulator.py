@@ -27,6 +27,11 @@ NODES = [
     (6, "Puesto San José", 5.0700, -75.5195),
 ]
 
+# Gateways simulados y qué nodos escucha cada uno (Puesto San José lo oyen los dos:
+# sirve para probar que el servidor descarta las tramas duplicadas).
+GATEWAYS = [("gw-1", "Puesto de mando UNAL", 5.0556, -75.4930), ("gw-2", "Torre Chipre", 5.0760, -75.5230)]
+OIDOS = {2: ("gw-1",), 3: ("gw-2",), 4: ("gw-1",), 5: ("gw-1",), 6: ("gw-1", "gw-2")}
+
 MESSAGES = [
     "SOS personas atrapadas en escombros",
     "Herido con fractura, necesito apoyo",
@@ -51,17 +56,33 @@ def solar_factor(now: datetime) -> float:
 class Simulator:
     def __init__(self, bus: Bus):
         self.bus = bus
+        self.gateways = GATEWAYS[:config.SIM_GATEWAYS]
+        self.gw_ids = {g[0] for g in self.gateways}
+        self.last_beat = 0.0
         self.state = {
             n[0]: {"name": n[1], "lat": n[2], "lon": n[3], "carga": random.uniform(45, 95)} for n in NODES
         }
 
+    def gateway_status(self) -> None:
+        """Estado de los gateways simulados (como el latido de cada gateway USB real)."""
+        self.last_beat = time.time()
+        for gid, nombre, lat, lon in self.gateways:
+            self.bus.publish(config.gw_topic(gid), {
+                "gateway_id": gid, "nombre": nombre, "direccion": 1, "conexion": "sim", "estado": "conectado",
+                "lat": lat, "lon": lon, "battery": 76, "voltage": 13.2, "panel_v": round(solar_factor(datetime.now()) * 18.4, 1),
+                "ts": int(time.time())})
+
     def run(self) -> None:
-        log.info("Simulando %d nodos FSK cada %.1f s", len(NODES), config.SIM_INTERVAL_SECS)
+        log.info("Simulando %d nodos FSK y %d gateway(s) cada %.1f s", len(NODES), len(self.gateways),
+                 config.SIM_INTERVAL_SECS)
+        self.gateway_status()
         for addr, st in self.state.items():
             self._emit({"nodo": addr, "tipo": "INFO", "nombre": st["name"]})
             self._emit({"nodo": addr, "tipo": "POS", **self._energy(addr), "lat": st["lat"], "lon": st["lon"]})
         while True:
             time.sleep(config.SIM_INTERVAL_SECS)
+            if time.time() - self.last_beat > 60:
+                self.gateway_status()
             addr = random.choice(list(self.state))
             st = self.state[addr]
             roll = random.random()
@@ -78,6 +99,24 @@ class Simulator:
     def send(self, text: str, to: str | None) -> None:
         log.info("[sim] transmitido por radio FSK a %s: %s", to or "todos", text)
 
+
+    def _energy(self, addr: int) -> dict:
+        st = self.state[addr]
+        sun = solar_factor(datetime.now())
+        # De día el panel carga la batería; de noche el nodo la descarga.
+        # Ritmo comprimido para la demo: unas décimas de % por trama (no horas reales).
+        st["carga"] = min(100.0, max(3.0, st["carga"] + (sun * 0.25 - 0.06) * random.uniform(0.5, 1.5)))
+        panel = round(sun * random.uniform(17.0, 19.5), 1)
+        bat = round(12.0 + st["carga"] / 100 * 1.6, 2)  # LiFePO4 4S: ~12,0 V vacía, ~13,6 V llena
+        return {"bat": bat, "panel": panel, "carga": int(st["carga"])}
+
+    def _emit(self, frame: dict) -> None:
+        # La misma trama la puede recibir más de un gateway, cada uno con su señal.
+        oyentes = [g for g in OIDOS.get(frame["nodo"], ("gw-1",)) if g in self.gw_ids] or [self.gateways[0][0]]
+        for gid in oyentes:
+            frame["rssi"] = random.randint(-105, -60)
+            for topic, payload in parse_line(json.dumps(frame, ensure_ascii=False), gid):
+                self.bus.publish(topic, payload)
 
 # --- Escenario de demo guionizado ------------------------------------------------
 # Un sismo que siempre se desarrolla igual, para presentar el sistema (ver DEMO.md).
@@ -107,6 +146,7 @@ class Escenario(Simulator):
 
     def run(self) -> None:
         log.info("Escenario de demo: %d eventos en %d s", len(ESCENARIO), ESCENARIO[-1][0])
+        self.gateway_status()
         for addr, st in self.state.items():
             self._emit({"nodo": addr, "tipo": "INFO", "nombre": st["name"]})
             self._emit({"nodo": addr, "tipo": "POS", **self._energy(addr), "lat": st["lat"], "lon": st["lon"]})
@@ -127,18 +167,3 @@ class Escenario(Simulator):
             self._emit(frame)
         log.info("Escenario terminado; continúa la simulación aleatoria")
         super().run()
-
-    def _energy(self, addr: int) -> dict:
-        st = self.state[addr]
-        sun = solar_factor(datetime.now())
-        # De día el panel carga la batería; de noche el nodo la descarga.
-        # Ritmo comprimido para la demo: unas décimas de % por trama (no horas reales).
-        st["carga"] = min(100.0, max(3.0, st["carga"] + (sun * 0.25 - 0.06) * random.uniform(0.5, 1.5)))
-        panel = round(sun * random.uniform(17.0, 19.5), 1)
-        bat = round(12.0 + st["carga"] / 100 * 1.6, 2)  # LiFePO4 4S: ~12,0 V vacía, ~13,6 V llena
-        return {"bat": bat, "panel": panel, "carga": int(st["carga"])}
-
-    def _emit(self, frame: dict) -> None:
-        frame["rssi"] = random.randint(-105, -60)
-        for topic, payload in parse_line(json.dumps(frame, ensure_ascii=False)):
-            self.bus.publish(topic, payload)

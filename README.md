@@ -74,6 +74,7 @@ docker compose up -d --build
 - [x] **APK con firma fija**: las actualizaciones se instalan encima, sin desinstalar.
 - [x] **Inicio de sesión con PIN de 4 dígitos y roles** (administrador, puesto de mando, socorrista) en app y dashboard; bloqueo tras 5 intentos; entrada sin conexión para socorristas; botón de emergencia sin cuenta ([USUARIOS.md](USUARIOS.md)).
 - [x] **Mejoras de experiencia en la app**: teclado PIN grande, bandeja de salida (lo escrito sin conexión se envía solo al reconectar), reconexión automática, GPS listo al abrir, aviso sonoro y vibración con alertas nuevas, pestaña *Asignadas* para socorristas.
+- [x] **Varios gateways**: tablas `gateways` y `enlaces`, alerta si un gateway se desconecta, duplicados descartados, respuesta por el gateway con mejor señal y la red dibujada en el mapa del dashboard.
 - [x] **Firmware ESP32** (PlatformIO): gateway ESP32-S3 (USB JSON ↔ radio) y nodo de albergue (portal Wi‑Fi cautivo, API para la app, medición de batería/panel, telemetría cada 5 min, malla RHMesh, AES-128). Compila; falta probarlo en hardware.
 - [x] **Nodo de albergue simulado** en Python con la misma API y portal que el firmware, para probar la app y el portal sin hardware.
 - [x] Configuración de referencia de la red FSK (sin claves expuestas).

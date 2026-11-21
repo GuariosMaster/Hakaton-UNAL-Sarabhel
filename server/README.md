@@ -115,6 +115,20 @@ arrancar por primera vez se crea `admin` con el PIN de `ADMIN_PIN` (por defecto 
 permisos y API: [USUARIOS.md](../USUARIOS.md). Las pruebas (`tests/test_auth.py`) necesitan
 `pip install -r requirements-dev.txt`.
 
+## Gateways y enlaces
+
+- Tabla **`gateways`**: un registro por gateway (`gw-1`, `gw-2`…) con nombre, dirección en la malla,
+  conexión (`usb:COM5`, `sim`), estado (`conectado`/`desconectado`), energía y última vez escuchado.
+  El listener envía un latido por minuto; si un gateway calla 2,5 min se marca desconectado y se crea
+  una alerta `gateway_desconectado`.
+- Tabla **`enlaces`**: (nodo, gateway) → última señal, promedio móvil, tramas y última vez. Se usa para
+  responder por el mejor gateway, ver qué nodos dependen de uno solo y dibujar la red.
+- `messages.gateway_id`: por qué gateway entró cada mensaje. Si la misma trama llega por dos gateways
+  en menos de 30 s, se guarda una sola vez.
+- API: `GET /api/gateways` (con los enlaces de cada uno) y `GET /api/enlaces`.
+- Varios gateways USB: `MESH_USB_DEVICE=COM5,COM7` y nombres opcionales en `MESH_GATEWAY_NAMES`.
+  El simulador crea 2 gateways (`SIM_GATEWAYS`).
+
 ## Gestión de alertas y reportes
 
 - Cada alerta (mensaje crítico, zona de riesgo, batería baja) se guarda en la tabla `alerts` con

@@ -40,8 +40,18 @@ class MessagingService:
             return
         ts = int(p.get("ts") or db.now())
         priority = classify(text)
+        gateway = p.get("gateway")
         with self.lock, self.conn:
             db.touch_node(self.conn, node, ts)
+            if gateway:
+                db.touch_link(self.conn, node, gateway, p.get("rssi"), ts)
+            # Varios gateways pueden recibir la misma trama: si ya entró hace unos segundos, se descarta.
+            dup = self.conn.execute(
+                """SELECT id FROM messages WHERE direction = 'in' AND from_node = ? AND text = ? AND ts >= ?
+                   LIMIT 1""", (node, text, ts - db.DUPLICATE_WINDOW_SECS)).fetchone()
+            if dup:
+                log.info("Duplicado de %s (también por %s), descartado", node, gateway or "?")
+                return
             row = self.conn.execute("SELECT lat, lon, long_name FROM nodes WHERE node_id = ?", (node,)).fetchone()
             # Prioridad: ubicación enviada con el mensaje > coordenadas en el texto > última posición del nodo.
             sent = (p["lat"], p["lon"]) if geo.valid_coords(p.get("lat"), p.get("lon")) else None
@@ -50,10 +60,10 @@ class MessagingService:
                 self.conn.execute("UPDATE nodes SET alert_ts = ? WHERE node_id = ?", (ts, node))
             cur = self.conn.execute(
                 """INSERT INTO messages (packet_id, direction, from_node, to_node, channel, text,
-                                         priority, lat, lon, rssi, snr, ts)
-                   VALUES (?, 'in', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                         priority, lat, lon, rssi, snr, ts, gateway_id)
+                   VALUES (?, 'in', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (p.get("packet_id"), node, p.get("to"), p.get("channel"), text, priority,
-                 lat, lon, p.get("rssi"), p.get("snr"), ts),
+                 lat, lon, p.get("rssi"), p.get("snr"), ts, gateway),
             )
             alert = None
             if priority == CRITICO:
@@ -62,7 +72,8 @@ class MessagingService:
                                                     "lat": lat, "lon": lon, "ts": ts})
         event = {"id": cur.lastrowid, "direction": "in", "from_node": node, "to_node": p.get("to"),
                  "long_name": row["long_name"] if row else None, "text": text, "priority": priority,
-                 "lat": lat, "lon": lon, "rssi": p.get("rssi"), "snr": p.get("snr"), "ts": ts}
+                 "lat": lat, "lon": lon, "rssi": p.get("rssi"), "snr": p.get("snr"), "ts": ts,
+                 "gateway_id": gateway}
         self.bus.publish(config.EV_MESSAGE, event)
         if alert:
             self.bus.publish(config.EV_ALERT, {**alert, "from_node": node})

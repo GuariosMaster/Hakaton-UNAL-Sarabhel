@@ -8,6 +8,7 @@ Dos programas sobre **ESP32 + RFM69HCW** con **RadioHead RHMesh**:
 | [`src/nodo`](src/nodo/main.cpp) | ESP32 DevKit V1 (o S3 / C6) | Nodo de albergue: crea la red Wi‑Fi abierta **“Emergencia &lt;nombre&gt;”** con **portal cautivo**, una API para la app móvil, mide batería y panel solar, envía reportes y telemetría por radio y reenvía tramas de otros nodos (malla). |
 
 Parámetros de radio, trama y conexiones: [`config/README.md`](../config/README.md).
+**Guía paso a paso para armar y configurar el gateway:** [`GATEWAY.md`](GATEWAY.md).
 
 ## Compilar y cargar
 

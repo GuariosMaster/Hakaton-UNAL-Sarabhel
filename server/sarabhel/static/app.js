@@ -248,6 +248,68 @@ function addMessage(m, prepend = true) {
   while (list.children.length > MAX_ITEMS) list.lastChild.remove();
 }
 
+// ---------- gateways y red ----------
+let gwLayer = null;
+
+function rssiColor(r) {
+  if (r == null) return "#9aa0a6";
+  return r > -80 ? "#2f9e44" : r > -95 ? "#d97706" : "#c92a2a";
+}
+
+async function loadGateways() {
+  let gws;
+  try { gws = await api("/api/gateways"); } catch (_) { return; }
+  // Lista
+  const list = $("gateways");
+  list.replaceChildren();
+  const unico = new Map();  // nodo -> cantidad de gateways que lo oyen
+  gws.forEach((g) => g.enlaces.forEach((l) => unico.set(l.node_id, (unico.get(l.node_id) || 0) + 1)));
+  for (const g of gws) {
+    const li = el("li", g.estado === "conectado" ? "" : "critico");
+    const meta = el("div", "meta");
+    const name = el("b", null, `${g.estado === "conectado" ? "🟢" : "🔴"} ${g.nombre || g.gateway_id}`);
+    meta.append(name, el("span", null, g.estado === "conectado" ? ago(g.last_seen) : "desconectado"));
+    const detail = el("div", "meta");
+    const solos = g.enlaces.filter((l) => unico.get(l.node_id) === 1).length;
+    detail.append(
+      el("span", null, `📡 ${g.nodos} nodo${g.nodos === 1 ? "" : "s"}${solos ? ` · ${solos} solo por aquí` : ""}`),
+      el("span", null, g.battery != null ? `🔋 ${g.battery}%` : (g.conexion || "")),
+    );
+    li.append(meta, detail);
+    if (g.enlaces.length) {
+      li.append(el("div", "meta small", g.enlaces.slice(0, 6)
+        .map((l) => `${l.long_name || l.node_id} ${Math.round(l.rssi_prom ?? l.rssi ?? 0)} dBm`).join(" · ")));
+    }
+    if (g.lat != null) { li.classList.add("clickable"); li.onclick = () => focus(g.lat, g.lon); }
+    list.append(li);
+  }
+  const conectados = gws.filter((g) => g.estado === "conectado").length;
+  $("gw-count").textContent = gws.length ? `${conectados}/${gws.length}` : "0";
+  $("gw-count").className = gws.length && conectados < gws.length ? "count warn" : "count";
+  $("gw-empty").hidden = gws.length > 0;
+
+  // Mapa: gateways (cuadrados) y enlaces con cada nodo, color según la señal
+  if (!map) return;
+  gwLayer?.remove();
+  gwLayer = L.layerGroup().addTo(map);
+  for (const g of gws) {
+    if (g.lat == null || g.lon == null) continue;
+    for (const l of g.enlaces) {
+      const n = state.nodes.get(l.node_id);
+      if (!n || n.lat == null) continue;
+      L.polyline([[g.lat, g.lon], [n.lat, n.lon]], {
+        color: rssiColor(l.rssi_prom ?? l.rssi), weight: 2, opacity: g.estado === "conectado" ? 0.7 : 0.25,
+        dashArray: g.estado === "conectado" ? null : "4 6",
+      }).bindTooltip(`${g.nombre || g.gateway_id} ↔ ${l.long_name || l.node_id}: ${Math.round(l.rssi_prom ?? l.rssi ?? 0)} dBm`)
+        .addTo(gwLayer);
+    }
+    const color = g.estado === "conectado" ? "#2563eb" : "#c92a2a";
+    L.marker([g.lat, g.lon], {
+      icon: L.divIcon({ className: "gw-icon", html: `<span style="background:${color}">📡</span>`, iconSize: [26, 26] }),
+    }).bindTooltip(`${g.nombre || g.gateway_id} (${g.estado})`).addTo(gwLayer);
+  }
+}
+
 // ---------- alertas y su gestión ----------
 const alertMap = new Map();  // id -> alerta
 const ESTADOS = { nueva: "Nueva", en_atencion: "En atención", atendida: "Atendida" };
@@ -271,6 +333,7 @@ async function updateAlert(id, changes) {
 
 function alertBody(a) {
   if (a.type === "zona_riesgo") return a.zone;
+  if (a.type === "gateway_desconectado") return `${a.text}. Los albergues que solo llegan por este gateway quedan sin comunicación.`;
   if (a.type === "bateria_baja") return `Batería al ${a.battery}%: revisar el kit de energía`;
   return a.text;
 }
@@ -287,7 +350,8 @@ function renderAlerts() {
   const items = [...alertMap.values()].sort((x, y) => (order[x.estado] - order[y.estado]) || (y.ts - x.ts)).slice(0, 60);
   const list = $("alerts");
   list.replaceChildren();
-  const titles = { zona_riesgo: "Zona de riesgo", bateria_baja: "Batería baja", mensaje_critico: "Mensaje crítico" };
+  const titles = { zona_riesgo: "Zona de riesgo", bateria_baja: "Batería baja", mensaje_critico: "Mensaje crítico",
+                   gateway_desconectado: "Gateway desconectado" };
   for (const a of items) {
     const li = el("li", `alerta ${a.estado} clickable`);
     const meta = el("div", "meta");
@@ -378,6 +442,7 @@ function connectStream() {
     if (a.type === "mensaje_critico") upsertNode({ node_id: a.from_node, alert_ts: a.ts });
   });
   on("alert_update", (a) => upsertAlert(a));
+  on("gateway", () => loadGateways());
 }
 
 // ---------- arranque ----------
@@ -394,6 +459,8 @@ async function main() {
   messages.forEach((m) => addMessage(m, false));
   (await api("/api/alerts?limit=100")).forEach((a) => alertMap.set(a.id, a));
   renderAlerts();
+  await loadGateways();
+  setInterval(loadGateways, 15000);  // los enlaces cambian con cada trama
 
   // Refresca colores y "hace X min" aunque no lleguen eventos.
   setInterval(() => {

@@ -22,6 +22,7 @@ const ESTADO_LABEL = { nueva: "Nueva", en_atencion: "En atención", atendida: "A
 const ESTADO_ORDEN = { nueva: 0, en_atencion: 1, atendida: 2 } as const;
 
 function alertTitle(a: ServerAlert) {
+  if (a.type === "gateway_desconectado") return "📡 Gateway desconectado";
   return a.type === "zona_riesgo" ? "⚠ Zona de riesgo" : a.type === "bateria_baja" ? "🪫 Batería baja" : "🆘 Mensaje crítico";
 }
 

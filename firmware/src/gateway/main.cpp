@@ -4,7 +4,9 @@
 //   {"nodo":2,"tipo":"MSG","bat":12.4,"panel":18.1,"carga":82,"msg":"...","rssi":-72}
 // PC -> Radio : lee líneas JSON {"dest":2,"msg":"Brigada en camino"} (dest 255 = todos)
 //               y las transmite como trama MSG.
-// Además reporta su propia energía (el kit del puesto de mando) como nodo 1.
+// Además reporta su nombre y su energía (el kit del puesto de mando) en líneas marcadas con
+// "gw":1, que el servidor guarda en la tabla gateways. Puede haber varios gateways en el
+// mismo servidor (cada uno por su USB); el servidor los distingue por el puerto.
 #include <ArduinoJson.h>
 
 #include "red.h"
@@ -58,6 +60,7 @@ static void emitirJson(uint8_t from, const Trama& t, int rssi) {
 static void reportarEnergiaPropia() {
   Energia e = medirEnergia();
   JsonDocument doc;
+  doc["gw"] = 1;  // línea propia del gateway (no es un nodo)
   doc["nodo"] = GATEWAY_ADDRESS;
   doc["tipo"] = "TEL";
   doc["bat"] = e.bat;
@@ -102,7 +105,7 @@ void setup() {
   }
   mesh.setTimeout(200);
   mesh.setRetries(3);
-  Serial.printf("{\"nodo\":%d,\"tipo\":\"INFO\",\"nombre\":\"%s\"}\n", GATEWAY_ADDRESS, NODE_NAME);
+  Serial.printf("{\"gw\":1,\"nodo\":%d,\"tipo\":\"INFO\",\"nombre\":\"%s\"}\n", GATEWAY_ADDRESS, NODE_NAME);
 }
 
 void loop() {

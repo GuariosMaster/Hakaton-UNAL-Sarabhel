@@ -298,6 +298,29 @@ def get_messages(limit: int = Query(100, ge=1, le=1000), _u: dict = Depends(ANY)
            ORDER BY m.ts DESC, m.id DESC LIMIT ?""", (limit,))
 
 
+@app.get("/api/gateways")
+def get_gateways(_u: dict = Depends(ANY)):
+    """Gateways con sus nodos escuchados en los últimos 30 min (mejor señal primero)."""
+    limite = db.now() - 1800
+    gws = query("SELECT * FROM gateways ORDER BY gateway_id")
+    links = query("""SELECT e.*, n.long_name FROM enlaces e LEFT JOIN nodes n ON n.node_id = e.node_id
+                     WHERE e.last_seen > ? ORDER BY e.rssi_prom DESC""", (limite,))
+    for g in gws:
+        g["enlaces"] = [l for l in links if l["gateway_id"] == g["gateway_id"]]
+        g["nodos"] = len(g["enlaces"])
+    return gws
+
+
+@app.get("/api/enlaces")
+def get_links(_u: dict = Depends(ANY)):
+    """Enlaces nodo-gateway recientes (para dibujar la red y ver qué nodos dependen de un solo gateway)."""
+    return query("""SELECT e.*, n.long_name, n.lat AS node_lat, n.lon AS node_lon, g.nombre AS gateway_nombre,
+                           g.lat AS gw_lat, g.lon AS gw_lon
+                    FROM enlaces e LEFT JOIN nodes n ON n.node_id = e.node_id
+                    LEFT JOIN gateways g ON g.gateway_id = e.gateway_id
+                    WHERE e.last_seen > ? ORDER BY e.node_id""", (db.now() - 1800,))
+
+
 @app.get("/api/positions/{node_id}")
 def get_positions(node_id: str, limit: int = Query(200, ge=1, le=5000), _u: dict = Depends(ANY)):
     rows = query("SELECT lat, lon, alt, ts FROM positions WHERE node_id = ? ORDER BY ts DESC LIMIT ?",

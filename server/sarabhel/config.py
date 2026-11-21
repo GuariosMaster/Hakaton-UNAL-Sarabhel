@@ -18,7 +18,13 @@ ZONES_FILE = _env("ZONES_FILE", str(BASE_DIR / "zones" / "zonas_riesgo.geojson")
 
 # Conexión con el gateway ESP32-S3 + RFM69HCW: sim | escenario (demo guionizada) | usb (puerto serie)
 MESH_CONNECTION = _env("MESH_CONNECTION", "sim").lower()
-MESH_USB_DEVICE = _env("MESH_USB_DEVICE") or None  # None = autodetectar (COM5, /dev/ttyACM0…)
+# Uno o varios gateways USB separados por coma: "COM5,COM7" o "/dev/ttyACM0,/dev/ttyACM1".
+# Vacío = autodetectar todos los ESP32 conectados.
+MESH_USB_DEVICE = _env("MESH_USB_DEVICE") or None
+# Nombres opcionales de los gateways, en el mismo orden: "Puesto UNAL,Torre Chipre".
+MESH_GATEWAY_NAMES = [n.strip() for n in _env("MESH_GATEWAY_NAMES").split(",") if n.strip()]
+# Gateways simulados (para probar varios gateways sin hardware).
+SIM_GATEWAYS = max(1, int(_env("SIM_GATEWAYS", "2")))
 MESH_USB_BAUD = int(_env("MESH_USB_BAUD", "115200"))
 
 SIM_INTERVAL_SECS = float(_env("SIM_INTERVAL_SECS", "6"))
@@ -64,6 +70,13 @@ RX_POSITION = "red/albergue/+/pos"
 RX_NODEINFO = "red/albergue/+/info"
 # Servidor -> radio (escucha el listener)
 TX_TEXT = "red/tx/msg"
+# Estado de cada gateway (conectado/desconectado, energía): red/gateway/{gateway_id}/estado
+GW_STATUS = "red/gateway/+/estado"
+EV_GATEWAY = "events/gateway"
+
+
+def gw_topic(gateway_id: str) -> str:
+    return f"red/gateway/{gateway_id}/estado"
 
 
 def rx_topic(kind: str, node_id: str) -> str:
