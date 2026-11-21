@@ -15,8 +15,17 @@ El resultado buscado no es solo que los nodos se hablen: es que esa información
 | Carpeta | Contenido |
 |---|---|
 | [`app/`](app/) | **App móvil Android propia** con dos modos: *Campo* (Bluetooth al nodo LoRa, botón SOS con GPS, chat) y *Puesto de mando* (alertas, mapa y mensajes desde el servidor por Wi‑Fi local). Ver [app/README.md](app/README.md). |
+| [`web/`](web/) | Página de descarga de la app. Publicada en GitHub Pages y servida también por el servidor local en `/descargar` (descarga sin internet). |
 | [`server/`](server/) | Servidor local del puesto de mando: Mosquitto (MQTT) + servicios Python (listener, mensajería, localización GPS, dashboard con mapa) + SQLite, orquestado con Docker Compose. Ver [server/README.md](server/README.md). |
 | [`config/`](config/) | Configuración de referencia de los nodos Meshtastic (sin claves). |
+
+## Descargar la app
+
+- **Con internet:** https://guariosmaster.github.io/Lora-Hakaton/ — el APK se compila
+  automáticamente con GitHub Actions en cada cambio de `app/` y queda en la release
+  [`apk-latest`](https://github.com/GuariosMaster/Lora-Hakaton/releases/tag/apk-latest).
+- **Sin internet, en el puesto de mando:** conectarse al Wi‑Fi del portátil y abrir
+  `http://192.168.137.1:8080/descargar` (copiar antes el APK a `server/descargas/`).
 
 ## Probar sin hardware
 

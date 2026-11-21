@@ -2,6 +2,7 @@
 import asyncio
 import json
 import sqlite3
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -47,7 +48,9 @@ async def lifespan(_app: FastAPI):
     db.connect().close()  # crea el esquema si el dashboard arranca primero
     hub.loop = asyncio.get_running_loop()
     bus.subscribe("events/#", hub.forward)
-    await asyncio.to_thread(bus.start)
+    # Conectar al broker en segundo plano: la web (y la descarga de la app) debe
+    # responder aunque el broker todavía no esté arriba.
+    threading.Thread(target=bus.start, daemon=True, name="mqtt-connect").start()
     yield
     bus.stop()
 
@@ -148,6 +151,24 @@ async def stream():
 @app.get("/")
 def index():
     return FileResponse(STATIC / "index.html")
+
+
+# --- Descarga de la app móvil sin internet --------------------------------
+# Los teléfonos se conectan al Wi-Fi del puesto de mando y abren /descargar.
+@app.get("/descargar")
+def download_page():
+    page = Path(config.WEB_DIR) / "index.html"
+    if not page.exists():
+        raise HTTPException(404, "Página de descarga no instalada (falta web/index.html)")
+    return FileResponse(page)
+
+
+@app.api_route(f"/descargar/{config.APK_NAME}", methods=["GET", "HEAD"])
+def download_apk():
+    apk = Path(config.DOWNLOADS_DIR) / config.APK_NAME
+    if not apk.exists():
+        raise HTTPException(404, f"Copia el APK en {config.DOWNLOADS_DIR}/{config.APK_NAME}")
+    return FileResponse(apk, media_type="application/vnd.android.package-archive", filename=config.APK_NAME)
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

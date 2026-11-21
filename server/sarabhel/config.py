@@ -29,6 +29,11 @@ DASHBOARD_PORT = int(_env("DASHBOARD_PORT", "8080"))
 TILE_URL = _env("TILE_URL", "https://tile.openstreetmap.org/{z}/{x}/{y}.png")
 MAP_CENTER = (5.0689, -75.5174)  # Manizales
 
+# Página de descarga de la app (carpeta web/ del repositorio) y carpeta con el APK.
+WEB_DIR = _env("WEB_DIR", str(BASE_DIR.parent / "web"))
+DOWNLOADS_DIR = _env("DOWNLOADS_DIR", str(BASE_DIR / "descargas"))
+APK_NAME = "RedEmergenciaLoRa.apk"
+
 # Límite práctico de un mensaje de texto Meshtastic (bytes UTF-8).
 MAX_TEXT_BYTES = 200
 

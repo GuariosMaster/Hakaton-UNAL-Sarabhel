@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#d62828">
+  <meta name="description" content="App Android para comunicarse en emergencias sin internet ni señal celular, a través de una red LoRa.">
+  <title>Descargar · Red de Emergencia LoRa</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
+  <style>
+    :root {
+      --bg: #f6f7f9; --panel: #fff; --text: #1b2130; --muted: #5f6878; --border: #e2e5ea;
+      --red: #d62828; --red-dark: #b51f1f; --blue: #2563eb; --ok: #2f9e44;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #101318; --panel: #1a1e26; --text: #e7e9ee; --muted: #a0a8b6; --border: #2a303b; }
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    a { color: var(--blue); }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+
+    header.bar { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+    .brand span { font-size: 26px; }
+    .bar a { font-size: 14px; color: var(--muted); text-decoration: none; }
+
+    .hero {
+      display: grid; grid-template-columns: 1.2fr 1fr; gap: 32px; align-items: center;
+      padding: 32px 0 48px;
+    }
+    .hero h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.12; margin: 0 0 14px; letter-spacing: -.01em; }
+    .hero p.lead { font-size: 18px; color: var(--muted); margin: 0 0 26px; max-width: 34em; }
+    .download {
+      display: inline-flex; align-items: center; gap: 12px; background: var(--red); color: #fff;
+      text-decoration: none; padding: 16px 26px; border-radius: 14px; font-size: 18px; font-weight: 700;
+      box-shadow: 0 10px 26px rgba(214, 40, 40, .3); transition: background .15s, transform .15s;
+    }
+    .download:hover { background: var(--red-dark); transform: translateY(-1px); }
+    .download svg { width: 26px; height: 26px; flex: none; }
+    .download small { display: block; font-weight: 500; font-size: 13px; opacity: .9; }
+    .meta { margin-top: 12px; font-size: 14px; color: var(--muted); }
+    .offline-badge {
+      display: inline-block; margin-bottom: 16px; background: rgba(47, 158, 68, .12); color: var(--ok);
+      border: 1px solid rgba(47, 158, 68, .35); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 600;
+    }
+
+    /* Teléfono ilustrativo hecho con CSS */
+    .phone {
+      justify-self: center; width: 240px; aspect-ratio: 9 / 18.5; border-radius: 34px; padding: 12px;
+      background: #1b2130; box-shadow: 0 24px 60px rgba(0, 0, 0, .25);
+    }
+    .screen {
+      height: 100%; border-radius: 24px; background: #101318; color: #e7e9ee; overflow: hidden;
+      display: flex; flex-direction: column; font-size: 11px;
+    }
+    .screen .top { display: flex; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid #2a303b; }
+    .screen .top b { font-size: 13px; }
+    .screen .pill { color: #7ad08a; }
+    .screen .sos {
+      margin: 22px auto 10px; width: 110px; height: 110px; border-radius: 50%; background: var(--red);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      box-shadow: 0 0 0 8px rgba(214, 40, 40, .25);
+    }
+    .screen .sos b { font-size: 28px; letter-spacing: .04em; }
+    .screen .ok { text-align: center; color: #7ad08a; margin-bottom: 10px; }
+    .screen .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 12px; }
+    .screen .grid div { background: #1a1e26; border: 1px solid #2a303b; border-radius: 8px; padding: 7px; }
+    .screen .nav { margin-top: auto; display: flex; justify-content: space-around; padding: 9px 0; border-top: 1px solid #2a303b; color: #a0a8b6; }
+    .screen .nav .on { color: #6b9bff; }
+
+    section { padding: 40px 0; }
+    section h2 { font-size: 26px; margin: 0 0 18px; }
+    .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 22px; }
+    .card h3 { margin: 8px 0 8px; font-size: 19px; }
+    .card .icon { font-size: 32px; }
+    .card ul { margin: 0; padding-left: 20px; color: var(--muted); }
+    .card li { margin: 4px 0; }
+
+    ol.steps { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; counter-reset: s; }
+    ol.steps li {
+      counter-increment: s; background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+      padding: 18px; font-size: 15px;
+    }
+    ol.steps li::before {
+      content: counter(s); display: flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+      border-radius: 50%; background: var(--blue); color: #fff; font-weight: 700; margin-bottom: 10px;
+    }
+    ol.steps b { display: block; margin-bottom: 4px; }
+    ol.steps span { color: var(--muted); }
+
+    .flow {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 22px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; text-align: center;
+    }
+    .flow .node { flex: 1; min-width: 110px; }
+    .flow .node div { font-size: 30px; }
+    .flow .node b { display: block; font-size: 15px; }
+    .flow .node small { color: var(--muted); }
+    .flow .arrow { color: var(--muted); font-size: 13px; min-width: 70px; }
+    .flow .arrow::after { content: "⟶"; display: block; font-size: 22px; color: var(--blue); }
+
+    .note {
+      background: rgba(37, 99, 235, .08); border: 1px solid rgba(37, 99, 235, .3); border-radius: 14px;
+      padding: 18px 20px; margin-top: 16px;
+    }
+    .note code { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; }
+
+    footer { border-top: 1px solid var(--border); padding: 24px 0 40px; color: var(--muted); font-size: 14px; }
+
+    @media (max-width: 760px) {
+      .hero { grid-template-columns: 1fr; padding-top: 12px; text-align: center; }
+      .hero p.lead { margin-left: auto; margin-right: auto; }
+      .phone { width: 200px; }
+      .cards { grid-template-columns: 1fr; }
+      ol.steps { grid-template-columns: 1fr 1fr; }
+      .flow { flex-direction: column; }
+      .flow .arrow::after { content: "↓"; }
+    }
+    @media (max-width: 420px) {
+      ol.steps { grid-template-columns: 1fr; }
+      .download { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="bar">
+      <div class="brand"><span>📡</span> Red de Emergencia LoRa</div>
+      <a id="repo-link" href="https://github.com/GuariosMaster/Lora-Hakaton">Código en GitHub</a>
+    </header>
+
+    <div class="hero">
+      <div>
+        <div class="offline-badge" id="offline-badge" hidden>✓ Descargando desde el puesto de mando, sin internet</div>
+        <h1>Pide ayuda aunque no haya internet ni señal celular</h1>
+        <p class="lead">
+          La app se conecta por Bluetooth a un nodo de radio LoRa que lleva tu mensaje
+          kilómetros a través de una red en malla hasta el puesto de mando.
+        </p>
+        <a class="download" id="download" href="https://github.com/GuariosMaster/Lora-Hakaton/releases/download/apk-latest/RedEmergenciaLoRa.apk" download>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-8 15a1 1 0 0 1 1 1v1h14v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
+          <span>Descargar para Android<small>Archivo APK</small></span>
+        </a>
+        <p class="meta">Android 7.0 o superior · Gratis · <span id="apk-size">≈ 5 MB</span></p>
+      </div>
+
+      <div class="phone" aria-hidden="true">
+        <div class="screen">
+          <div class="top"><b>Emergencia</b><span class="pill">● Nodo · 87%</span></div>
+          <div class="sos"><b>SOS</b><span>Mantén presionado</span></div>
+          <div class="ok">✓ Recibido por la red LoRa</div>
+          <div class="grid">
+            <div>🩸 Herido</div><div>🧱 Atrapado</div>
+            <div>💧 Agua</div><div>✅ Estoy bien</div>
+          </div>
+          <div class="nav"><span class="on">🆘 SOS</span><span>💬</span><span>🗺️</span><span>📶</span></div>
+        </div>
+      </div>
+    </div>
+
+    <section>
+      <h2>Una app, dos modos</h2>
+      <div class="cards">
+        <div class="card">
+          <div class="icon">🧑‍🚒</div>
+          <h3>Modo Campo</h3>
+          <ul>
+            <li>Botón <b>SOS</b> que envía tu ubicación GPS</li>
+            <li>Mensajes rápidos: herido, atrapado, necesito agua…</li>
+            <li>Chat con toda la red o con un nodo</li>
+            <li>Mapa de los nodos cercanos</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="icon">🗺️</div>
+          <h3>Modo Puesto de mando</h3>
+          <ul>
+            <li>Alertas críticas en tiempo real</li>
+            <li>Mapa de toda la red y zonas de riesgo</li>
+            <li>Ubicación de cada brigada</li>
+            <li>Envío de mensajes a cualquier nodo</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Cómo instalarla</h2>
+      <ol class="steps">
+        <li><b>Descarga el APK</b><span>Toca el botón rojo desde tu teléfono Android.</span></li>
+        <li><b>Ábrelo</b><span>Búscalo en Descargas o en la notificación del navegador.</span></li>
+        <li><b>Permite la instalación</b><span>Si Android lo pide, autoriza “instalar apps desconocidas” para tu navegador.</span></li>
+        <li><b>Conecta tu nodo</b><span>Abre la app, elige tu modo y conéctate por Bluetooth o prueba el modo demo.</span></li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Cómo funciona</h2>
+      <div class="flow">
+        <div class="node"><div>📱</div><b>Tu teléfono</b><small>la app</small></div>
+        <div class="arrow">Bluetooth</div>
+        <div class="node"><div>📟</div><b>Nodo LoRa</b><small>lo llevas contigo</small></div>
+        <div class="arrow">Radio LoRa, km</div>
+        <div class="node"><div>📡</div><b>Gateway</b><small>malla de nodos</small></div>
+        <div class="arrow">USB</div>
+        <div class="node"><div>💻</div><b>Puesto de mando</b><small>servidor local</small></div>
+      </div>
+      <div class="note">
+        <b>¿Sin internet?</b> En el puesto de mando, conéctate a su red Wi‑Fi y abre
+        <code>http://192.168.137.1:8080/descargar</code> para descargar la app directamente del servidor local.
+      </div>
+    </section>
+
+    <footer>
+      Proyecto para el reto de Energía y Conectividad · Hackathon UNAL Manizales.
+      Construido sobre la red abierta <a href="https://meshtastic.org">Meshtastic</a>.
+    </footer>
+  </div>
+
+  <script>
+    // Servida por el servidor del puesto de mando: descargar el APK local, sin internet.
+    (function () {
+      var local = location.pathname.indexOf("/descargar") === 0;
+      if (!local) return;
+      var link = document.getElementById("download");
+      link.href = "/descargar/RedEmergenciaLoRa.apk";
+      document.getElementById("offline-badge").hidden = false;
+      document.getElementById("repo-link").hidden = true;
+      fetch(link.href, { method: "HEAD" }).then(function (r) {
+        var size = Number(r.headers.get("content-length"));
+        if (r.ok && size) document.getElementById("apk-size").textContent = (size / 1048576).toFixed(1) + " MB";
+        else if (!r.ok) document.getElementById("apk-size").textContent = "APK aún no copiado al servidor";
+      }).catch(function () {});
+    })();
+  </script>
+</body>
+</html>

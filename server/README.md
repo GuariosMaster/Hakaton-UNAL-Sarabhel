@@ -95,6 +95,14 @@ Para que el gateway entregue los paquetes al servidor y no salgan a internet:
   `SOS|Herido|Atrapado|Necesito agua|Necesito medicina|Estoy bien|Evacuando`.
 - Cambiar el PIN Bluetooth `123456` y regenerar las claves si el `config.yaml` se compartió.
 
+## Descarga de la app sin internet
+
+El dashboard sirve la página de descarga en `/descargar` y el APK en
+`/descargar/RedEmergenciaLoRa.apk`. Antes del evento, copiar el APK a `server/descargas/`
+(ver `descargas/LEEME.md`). Los teléfonos conectados al Wi‑Fi del puesto de mando instalan la
+app abriendo `http://192.168.137.1:8080/descargar`. La página funciona aunque el broker MQTT
+esté apagado.
+
 ## Mapa offline
 
 Por defecto el mapa usa mosaicos de OpenStreetMap **en línea**. Para operar sin internet:

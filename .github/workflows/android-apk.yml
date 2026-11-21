@@ -1,0 +1,68 @@
+# Compila la app Android y publica el APK en la release "apk-latest".
+# La página de descarga enlaza siempre a:
+#   https://github.com/GuariosMaster/Lora-Hakaton/releases/download/apk-latest/RedEmergenciaLoRa.apk
+name: APK Android
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - ".github/workflows/android-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar la app web
+        run: npm run build
+
+      - name: Sincronizar con Android
+        run: npx cap sync android
+
+      - name: Compilar APK
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/RedEmergenciaLoRa.apk"
+
+      - name: Publicar en la release apk-latest
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          target_commitish: ${{ github.sha }}
+          name: App Android (última versión)
+          body: |
+            APK compilado automáticamente desde `${{ github.sha }}`.
+            Versión de prueba (debug) para el hackathon: instalar permitiendo "apps de origen desconocido".
+          files: RedEmergenciaLoRa.apk
+          make_latest: true

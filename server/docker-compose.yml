@@ -65,6 +65,13 @@ services:
     environment:
       <<: *env
       TILE_URL: ${TILE_URL:-}
+      WEB_DIR: /app/web
+      DOWNLOADS_DIR: /app/descargas
+    volumes:
+      - datos:/data
+      # Página /descargar y APK de la app móvil (descarga sin internet en el puesto de mando)
+      - ../web:/app/web:ro
+      - ./descargas:/app/descargas:ro
     ports:
       # Visible en la red local del puesto de mando (celulares / otros PC).
       - "8080:8080"
