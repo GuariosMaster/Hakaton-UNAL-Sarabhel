@@ -51,3 +51,24 @@ export function save(key: string, value: unknown) {
     localStorage.setItem(key, JSON.stringify(value));
   } catch { /* almacenamiento no disponible */ }
 }
+
+let audio: AudioContext | undefined;
+
+/** Aviso de alerta nueva: vibración y dos pitidos cortos (no necesita archivos de sonido). */
+export function notifyAlert() {
+  navigator.vibrate?.([200, 100, 200]);
+  try {
+    audio ??= new AudioContext();
+    const t = audio.currentTime;
+    for (const [i, f] of [880, 660].entries()) {
+      const o = audio.createOscillator();
+      const g = audio.createGain();
+      o.frequency.value = f;
+      g.gain.setValueAtTime(0.18, t + i * 0.18);
+      g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.18 + 0.15);
+      o.connect(g).connect(audio.destination);
+      o.start(t + i * 0.18);
+      o.stop(t + i * 0.18 + 0.16);
+    }
+  } catch { /* sin audio disponible */ }
+}

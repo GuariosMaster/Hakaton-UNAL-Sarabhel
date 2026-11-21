@@ -3,7 +3,8 @@ import { create } from "zustand";
 import {
   ServerClient, type AlertState, type ServerAlert, type ServerMessage, type ServerNode,
 } from "../lib/server";
-import { load, save } from "../lib/util";
+import { load, notifyAlert, save } from "../lib/util";
+import { useAuth } from "./auth";
 
 type Status = "desconectado" | "conectando" | "conectado" | "error";
 
@@ -38,7 +39,12 @@ export const useCommand = create<CommandState>()((set) => ({
   connect: async (url) => {
     closeStream?.();
     save("mando.url", url);
-    client = new ServerClient(url);
+    const token = useAuth.getState().session?.token;
+    if (!token) {
+      set({ url, status: "error", error: "Entraste sin conexión: vuelve a iniciar sesión conectado al Wi‑Fi del puesto de mando." });
+      return;
+    }
+    client = new ServerClient(url, token);
     set({ url, status: "conectando", error: undefined });
     try {
       const [cfg, nodes, messages, zones, alerts] = await Promise.all([
@@ -65,7 +71,8 @@ export const useCommand = create<CommandState>()((set) => ({
                              pos_ts: p.ts, last_heard: p.ts, risk_zone: p.risk_zone },
             },
           })),
-        alert: (a) =>
+        alert: (a) => {
+          if (a.estado === "nueva") notifyAlert();
           set((s) => {
             const node = a.from_node ?? a.node_id;
             return {
@@ -74,7 +81,8 @@ export const useCommand = create<CommandState>()((set) => ({
                 ? { ...s.nodes, [node]: { ...s.nodes[node], node_id: node, alert_ts: a.ts } }
                 : s.nodes,
             };
-          }),
+          });
+        },
         alert_update: (a) => set((s) => ({ alerts: s.alerts.map((x) => (x.id === a.id ? { ...x, ...a } : x)) })),
       });
     } catch (e) {

@@ -3,7 +3,7 @@ import { Composer, Empty, PriorityBadge } from "../../components/ui";
 import { ago } from "../../lib/util";
 import { nodeLabel, useField } from "../../store/field";
 
-const STATUS_ICON = { enviando: "⏳", "en-red": "✓", entregado: "✓✓", fallo: "⚠" } as const;
+const STATUS_ICON = { "en-cola": "🕓 en cola", enviando: "⏳", "en-red": "✓", entregado: "✓✓", fallo: "⚠ falló" } as const;
 
 export function FieldChatScreen() {
   const { messages, nodes, myNum, status, send } = useField();

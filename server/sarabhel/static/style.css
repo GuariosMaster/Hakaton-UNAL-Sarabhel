@@ -101,3 +101,27 @@ button.mini { padding: 3px 8px; font-size: 12px; background: var(--panel); color
 .tools { display: flex; gap: 12px; font-size: 13px; margin-left: auto; margin-right: 16px; }
 .tools a { color: var(--info); text-decoration: none; }
 @media (max-width: 800px) { .tools { display: none; } }
+
+/* inicio de sesión y usuarios */
+.overlay { position: fixed; inset: 0; background: rgba(10, 14, 20, .72); display: flex; align-items: center;
+  justify-content: center; z-index: 5000; padding: 16px; }
+.overlay[hidden] { display: none; }
+.login-card, .users-card { background: var(--panel); color: var(--text); border-radius: 14px; padding: 24px;
+  width: 100%; box-shadow: 0 20px 60px rgba(0, 0, 0, .35); }
+.login-card { max-width: 340px; display: flex; flex-direction: column; gap: 10px; text-align: center; }
+.login-card h2 { margin: 0; }
+.login-card label { display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 13px; color: var(--muted); }
+.login-card input { font-size: 18px; }
+.login-card #login-pin { letter-spacing: .5em; text-align: center; }
+.login-logo { font-size: 40px; }
+.users-card { max-width: 860px; max-height: 90vh; overflow: auto; }
+.users-card .row { display: flex; justify-content: space-between; align-items: center; }
+.users-card table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0 16px; }
+.users-card th, .users-card td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.users-card tr.inactivo { opacity: .5; }
+.user-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; align-items: center; }
+.user-form h3 { grid-column: 1 / -1; margin: 0; font-size: 15px; }
+.user-box { display: flex; gap: 6px; align-items: center; margin-left: 12px; font-size: 13px; }
+button.link { background: none; border: 0; color: var(--info); padding: 2px 4px; cursor: pointer; font: inherit; }
+.tools [hidden], #send-form[hidden] { display: none !important; }
+@media (max-width: 800px) { .user-box #user-name { display: none; } }

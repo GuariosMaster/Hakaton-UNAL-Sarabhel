@@ -1,0 +1,5 @@
+# Para desarrollo y pruebas (no hace falta en el servidor del puesto de mando)
+-r requirements.txt
+pytest
+httpx
+amqtt

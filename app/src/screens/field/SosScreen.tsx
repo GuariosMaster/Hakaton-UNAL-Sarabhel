@@ -6,6 +6,7 @@ import { ConnectCard } from "./ConnectScreen";
 
 const HOLD_MS = 1500;
 const STATUS_TEXT = {
+  "en-cola": "🕓 Sin conexión: se enviará al reconectar",
   enviando: "Enviando por radio…",
   "en-red": "✓ Enviado por radio al puesto de mando",
   entregado: "✓ Entregado",
@@ -32,7 +33,6 @@ export function SosScreen() {
 
   // Mantener presionado para evitar SOS accidentales.
   function startHold() {
-    if (!connected) return;
     const t0 = performance.now();
     const step = () => {
       const p = Math.min(1, (performance.now() - t0) / HOLD_MS);
@@ -63,7 +63,6 @@ export function SosScreen() {
         <button
           type="button"
           className="sos-button"
-          disabled={!connected}
           style={{ "--p": progress } as React.CSSProperties}
           onPointerDown={startHold}
           onPointerUp={cancelHold}
@@ -72,7 +71,7 @@ export function SosScreen() {
           onContextMenu={(e) => e.preventDefault()}
         >
           <span className="sos-text">SOS</span>
-          <span className="sos-hint">{connected ? "Mantén presionado" : "Sin conexión"}</span>
+          <span className="sos-hint">{connected ? "Mantén presionado" : "Mantén presionado · se enviará al conectar"}</span>
         </button>
       </div>
 
@@ -95,7 +94,7 @@ export function SosScreen() {
       <h2>Mensajes rápidos</h2>
       <div className="quick-grid">
         {QUICK_MESSAGES.map((q) => (
-          <button key={q.text} type="button" className="quick" disabled={!connected}
+          <button key={q.text} type="button" className="quick"
                   onClick={() => setConfirm({ label: q.label, text: q.text })}>
             <span className="icon">{q.icon}</span>
             {q.label}

@@ -14,7 +14,8 @@ presentación no dependa de la suerte. Funciona sin hardware y sin internet (sal
 
    El escenario arranca en cuanto se abre la ventana del listener: inicia el servidor **justo antes
    de empezar** (o ciérralo y vuelve a abrirlo para reiniciar la historia).
-3. Proyecta el dashboard: `http://localhost:8080`.
+3. Proyecta el dashboard: `http://localhost:8080` y entra con un usuario de puesto de mando
+   (el primer uso: `admin` / `1234`, ver [USUARIOS.md](USUARIOS.md)).
 4. Opcional: un nodo de albergue simulado para la parte del teléfono:
    `server\.venv\Scripts\python firmware\herramientas\nodo_simulado.py --nodo 7 --nombre "Albergue Bosques"`.
 

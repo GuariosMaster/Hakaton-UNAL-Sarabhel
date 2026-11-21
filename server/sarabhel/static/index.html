@@ -11,10 +11,15 @@
   <header>
     <h1>Puesto de mando <span>· red de emergencia FSK 915 MHz</span></h1>
     <div class="tools">
-      <a href="/api/export/mensajes.csv" download>⬇ Mensajes CSV</a>
-      <a href="/api/export/alertas.csv" download>⬇ Alertas CSV</a>
+      <a id="csv-mensajes" href="#" download>⬇ Mensajes CSV</a>
+      <a id="csv-alertas" href="#" download>⬇ Alertas CSV</a>
+      <button type="button" id="btn-usuarios" class="link" hidden>👥 Usuarios</button>
     </div>
     <div class="status"><span id="conn-dot" class="dot"></span><span id="conn-text">Conectando…</span></div>
+    <div class="user-box">
+      <button type="button" id="btn-usuario" class="link" title="Cambiar PIN">👤 <span id="user-name"></span></button>
+      <button type="button" id="btn-salir" class="link">Salir</button>
+    </div>
   </header>
 
   <main>
@@ -56,6 +61,44 @@
       </form>
     </aside>
   </main>
+
+  <!-- Inicio de sesión -->
+  <div id="login" class="overlay" hidden>
+    <form id="login-form" class="login-card">
+      <div class="login-logo">📡</div>
+      <h2>Puesto de mando</h2>
+      <p class="muted">Red de emergencia FSK 915 MHz</p>
+      <label>Usuario<input id="login-user" autocomplete="username" autocapitalize="off" required></label>
+      <label>PIN de 4 dígitos<input id="login-pin" type="password" inputmode="numeric" pattern="\d{4}"
+             maxlength="4" autocomplete="current-password" required></label>
+      <p id="login-error" class="error" hidden></p>
+      <button type="submit">Entrar</button>
+    </form>
+  </div>
+
+  <!-- Administración de usuarios -->
+  <div id="users" class="overlay" hidden>
+    <div class="users-card">
+      <div class="row"><h2>Usuarios</h2><button type="button" id="users-close" class="link">Cerrar ✕</button></div>
+      <table><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Equipo</th><th></th></tr></thead>
+        <tbody id="users-body"></tbody></table>
+      <form id="user-form" class="user-form">
+        <h3>Nuevo usuario</h3>
+        <input id="nu-usuario" placeholder="usuario (ej. ana.perez)" autocapitalize="off" required>
+        <input id="nu-nombre" placeholder="Nombre" required>
+        <select id="nu-rol">
+          <option value="socorrista">Socorrista</option>
+          <option value="mando">Puesto de mando</option>
+          <option value="admin">Administrador</option>
+        </select>
+        <input id="nu-equipo" placeholder="Equipo (ej. Bomberos 2)">
+        <input id="nu-pin" placeholder="PIN inicial (4 dígitos)" inputmode="numeric" pattern="\d{4}" maxlength="4" required>
+        <button type="submit">Crear</button>
+      </form>
+      <p id="users-error" class="error" hidden></p>
+      <p class="muted">El PIN inicial lo debe cambiar cada persona al entrar por primera vez.</p>
+    </div>
+  </div>
 
   <script src="/static/vendor/leaflet/leaflet.js"></script>
   <script src="/static/app.js"></script>

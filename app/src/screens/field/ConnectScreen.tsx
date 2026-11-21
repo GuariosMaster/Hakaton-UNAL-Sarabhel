@@ -1,7 +1,9 @@
 import { useState } from "react";
 import type { MeshNode } from "../../lib/mesh";
 import { ago } from "../../lib/util";
+import { useAuth } from "../../store/auth";
 import { useField } from "../../store/field";
+import { AccountCard } from "../AccountScreen";
 
 const STATUS_LABEL = {
   desconectado: "Desconectado",
@@ -24,10 +26,11 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
     status, detail, kind, connect, disconnect, nodeUrl, setNodeUrl, serverUrl, deviceName, setLanSettings,
   } = useField();
   const busy = status === "conectando" || status === "configurando";
+  const loggedIn = useAuth((s) => !!s.session?.token);
   const [form, setForm] = useState<Form>(null);
   const [node, setNode] = useState(nodeUrl);
-  const [url, setUrl] = useState(serverUrl);
-  const [name, setName] = useState(deviceName);
+  const url = useAuth((st) => st.session?.serverUrl) ?? serverUrl;
+  const name = useAuth((st) => st.session?.nombre) ?? deviceName;
 
   if (status === "conectado") {
     return (
@@ -55,9 +58,11 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
         📡 Wi‑Fi del albergue
       </button>
       <div className="row">
-        <button type="button" disabled={busy} onClick={() => setForm(form === "red-local" ? null : "red-local")}>
-          🖥️ Puesto de mando
-        </button>
+        {loggedIn && (
+          <button type="button" disabled={busy} onClick={() => setForm(form === "red-local" ? null : "red-local")}>
+            🖥️ Puesto de mando
+          </button>
+        )}
         <button type="button" disabled={busy} onClick={() => void connect("simulador")}>🧪 Demo</button>
       </div>
 
@@ -88,12 +93,7 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
             Si estás en el puesto de mando, conéctate a su Wi‑Fi. Tus mensajes llegan al servidor, a los demás
             teléfonos y a los albergues por radio. También sirve para probar la app entre teléfonos sin nodos.
           </p>
-          <label>Tu nombre en la red
-            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required />
-          </label>
-          <label>Servidor
-            <input value={url} onChange={(e) => setUrl(e.target.value)} inputMode="url" autoCapitalize="off" required />
-          </label>
+          <p className="muted">Entras como <b>{useAuth.getState().session?.nombre ?? name}</b> en el servidor de tu sesión.</p>
           <button type="submit" className="primary" disabled={busy}>Conectar al puesto de mando</button>
         </form>
       )}
@@ -108,14 +108,22 @@ function energyLine(n: MeshNode) {
   return parts.join(" · ") || "🔋 —";
 }
 
-export function ConnectScreen({ onChangeMode }: { onChangeMode: () => void }) {
+export function ConnectScreen({ onChangeMode }: { onChangeMode?: () => void }) {
   const { nodes, myNum, kind } = useField();
+  const { session, logout } = useAuth();
   const list = Object.values(nodes).sort((a, b) => (b.lastHeard ?? 0) - (a.lastHeard ?? 0));
   const me = myNum != null ? nodes[myNum] : undefined;
 
   return (
     <div className="screen">
       <ConnectCard />
+      {session ? <AccountCard /> : (
+        <div className="card">
+          <p><b>Estás sin cuenta</b> (modo emergencia)</p>
+          <p className="muted">Puedes pedir ayuda y enviar mensajes. Los socorristas y el puesto de mando entran con su usuario.</p>
+          <button type="button" onClick={() => void logout()}>👤 Entrar con usuario</button>
+        </div>
+      )}
       {me && (
         <div className="card">
           <p><b>{kind === "red-local" ? "Este teléfono" : "Nodo del albergue"}:</b> {me.longName ?? me.id}</p>
@@ -139,7 +147,9 @@ export function ConnectScreen({ onChangeMode }: { onChangeMode: () => void }) {
         ))}
       </ul>
 
-      <button type="button" className="link block" onClick={onChangeMode}>Cambiar a modo Puesto de mando</button>
+      {onChangeMode && (
+        <button type="button" className="link block" onClick={onChangeMode}>Cambiar a modo Puesto de mando</button>
+      )}
     </div>
   );
 }

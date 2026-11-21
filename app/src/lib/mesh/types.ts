@@ -16,7 +16,8 @@ export interface MeshNode {
   lastHeard?: number; // epoch s
 }
 
-export type DeliveryStatus = "enviando" | "en-red" | "entregado" | "fallo";
+/** en-cola = escrito sin conexión; se envía solo al reconectar. */
+export type DeliveryStatus = "en-cola" | "enviando" | "en-red" | "entregado" | "fallo";
 
 export interface ChatMessage {
   key: string;

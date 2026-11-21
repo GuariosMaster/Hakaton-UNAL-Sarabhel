@@ -6,6 +6,7 @@ import {
 } from "../lib/mesh";
 import { classify } from "../lib/priority";
 import { getFix, load, now, save, type Fix } from "../lib/util";
+import { useAuth } from "./auth";
 
 type Kind = RadioLink["kind"];
 
@@ -26,7 +27,11 @@ interface FieldState {
   messages: ChatMessage[];
   fix?: Fix;
   gpsError?: string;
-  connect: (kind: Kind) => Promise<void>;
+  connect: (kind: Kind, opts?: { silent?: boolean }) => Promise<void>;
+  /** Reconecta a la última conexión usada (al abrir la app), sin mostrar errores. */
+  autoConnect: () => void;
+  /** Cantidad de mensajes esperando conexión. */
+  queued: () => number;
   disconnect: () => Promise<void>;
   send: (text: string, to?: string) => Promise<void>;
   sendEmergency: (text: string) => Promise<void>;
@@ -63,18 +68,34 @@ export const useField = create<FieldState>()((set, get) => {
       return { messages };
     });
 
-  const sendRaw = async (text: string, to: string, fix?: Fix) => {
-    if (!radio || get().status !== "conectado") throw new Error("Conéctate primero al Wi‑Fi del albergue");
-    const key = crypto.randomUUID();
-    addMessage({ key, from: "yo", to, text, ts: now(), priority: classify(text), mine: true,
-                 status: "enviando", lat: fix?.lat, lon: fix?.lon });
+  const transmit = async (key: string, text: string, to: string, fix?: { lat: number; lon: number }) => {
+    set((s) => ({ messages: s.messages.map((m) => (m.key === key ? { ...m, status: "enviando" } : m)) }));
     try {
-      const packetId = await radio.sendText(text, to === "^all" ? BROADCAST : idToNum(to) ?? BROADCAST, fix);
+      const packetId = await radio!.sendText(text, to === "^all" ? BROADCAST : idToNum(to) ?? BROADCAST, fix);
       set((s) => ({ messages: s.messages.map((m) => (m.key === key ? { ...m, packetId } : m)) }));
     } catch (e) {
       set((s) => ({ messages: s.messages.map((m) => (m.key === key ? { ...m, status: "fallo" } : m)) }));
       throw e;
     }
+  };
+
+  /** Envía lo que quedó en cola mientras no había conexión (en orden). */
+  const flushOutbox = async () => {
+    const pending = get().messages.filter((m) => m.mine && m.status === "en-cola");
+    for (const m of pending) {
+      if (!radio || get().status !== "conectado") return;
+      await transmit(m.key, m.text, m.to, m.lat != null && m.lon != null ? { lat: m.lat, lon: m.lon } : undefined)
+        .catch(() => {});
+    }
+  };
+
+  const sendRaw = async (text: string, to: string, fix?: Fix) => {
+    const key = crypto.randomUUID();
+    const online = !!radio && get().status === "conectado";
+    addMessage({ key, from: "yo", to, text, ts: now(), priority: classify(text), mine: true,
+                 status: online ? "enviando" : "en-cola", lat: fix?.lat, lon: fix?.lon });
+    if (!online) return; // queda en la bandeja de salida; se envía al reconectar
+    await transmit(key, text, to, fix);
   };
 
   const id = deviceId();
@@ -101,12 +122,21 @@ export const useField = create<FieldState>()((set, get) => {
     nodes: {},
     messages: load<ChatMessage[]>("campo.mensajes", []),
 
-    connect: async (kind) => {
+    connect: async (kind, opts) => {
       await radio?.disconnect().catch(() => {});
       save("campo.tipo", kind);
       set({ kind, detail: undefined, nodes: {}, myNum: undefined });
+      const session = useAuth.getState().session;
+      const name = session?.nombre ?? get().deviceName;
       radio = createRadio(kind, {
-        status: (status, detail) => set({ status, detail }),
+        status: (status, detail) => {
+          const was = get().status;
+          set({ status, detail });
+          if (status === "conectado" && was !== "conectado") {
+            save("campo.conectado", true);
+            void flushOutbox();
+          }
+        },
         myNode: (myNum) => set({ myNum }),
         node: (n) =>
           set((s) => {
@@ -124,17 +154,28 @@ export const useField = create<FieldState>()((set, get) => {
         ack: (packetId, ok) => updateMessage(packetId, { status: ok ? "en-red" : "fallo" }),
       }, {
         nodeUrl: get().nodeUrl,
-        serverUrl: get().serverUrl,
-        identity: { id: get().deviceId, longName: get().deviceName, shortName: shortFrom(get().deviceName) },
+        serverUrl: session?.serverUrl ?? get().serverUrl,
+        identity: { id: get().deviceId, longName: name, shortName: shortFrom(name) },
+        token: session?.token,
       });
       try {
         await radio.connect();
       } catch (e) {
-        set({ status: "desconectado", detail: e instanceof Error ? e.message : String(e) });
+        set({ status: "desconectado", detail: opts?.silent ? undefined : e instanceof Error ? e.message : String(e) });
       }
     },
 
+    autoConnect: () => {
+      if (get().status !== "desconectado" || !load<string | null>("campo.conectado", null)) return;
+      const kind = get().kind;
+      if (kind === "red-local" && !useAuth.getState().session?.token) return;
+      void get().connect(kind, { silent: true });
+    },
+
+    queued: () => get().messages.filter((m) => m.mine && m.status === "en-cola").length,
+
     disconnect: async () => {
+      save("campo.conectado", null); // el usuario desconectó a propósito: no reconectar solo
       await radio?.disconnect().catch(() => {});
       radio = undefined;
       set({ status: "desconectado" });

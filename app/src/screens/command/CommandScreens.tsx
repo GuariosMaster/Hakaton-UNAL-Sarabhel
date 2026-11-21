@@ -4,6 +4,7 @@ import { Composer, Empty, PriorityBadge } from "../../components/ui";
 import type { AlertState, ServerAlert, ServerNode } from "../../lib/server";
 import { ago, now } from "../../lib/util";
 import { serverNodeName, useCommand } from "../../store/command";
+import { AccountCard } from "../AccountScreen";
 
 const ALERT_S = 30 * 60;
 const STALE_S = 30 * 60;
@@ -208,12 +209,16 @@ export function CommandChatScreen() {
   );
 }
 
-export function CommandSettingsScreen({ onChangeMode }: { onChangeMode: () => void }) {
+export function CommandSettingsScreen({ onChangeMode, onUsers }: { onChangeMode: () => void; onUsers?: () => void }) {
   const { url, status, error, connect, disconnect, nodes } = useCommand();
   const [value, setValue] = useState(url);
   const busy = status === "conectando";
   return (
     <div className="screen">
+      <AccountCard />
+      {onUsers && (
+        <button type="button" className="card-button" onClick={onUsers}>👥 Administrar usuarios <span>›</span></button>
+      )}
       <div className="card">
         <p><b>Servidor del puesto de mando</b></p>
         <p className="muted">

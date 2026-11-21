@@ -37,9 +37,9 @@ export class LanRadio implements RadioLink {
   private me: LanIdentity;
   private closeStream?: () => void;
 
-  constructor(events: RadioEvents, url: string, identity: LanIdentity) {
+  constructor(events: RadioEvents, url: string, identity: LanIdentity, token?: string) {
     this.ev = events;
-    this.client = new ServerClient(url);
+    this.client = new ServerClient(url, token);
     this.me = identity;
   }
 

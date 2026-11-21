@@ -43,8 +43,23 @@ function nodeName(id) {
   return (n && (n.long_name || n.short_name)) || id;
 }
 
-async function api(path, opts) {
-  const r = await fetch(path, opts);
+// ---------- sesión ----------
+const session = {
+  get token() { try { return localStorage.getItem("token"); } catch (_) { return null; } },
+  set token(v) { try { v ? localStorage.setItem("token", v) : localStorage.removeItem("token"); } catch (_) { /* sin almacenamiento */ } },
+  user: null,
+};
+const ROL_LABEL = { admin: "Administrador", mando: "Puesto de mando", socorrista: "Socorrista" };
+
+async function api(path, opts = {}) {
+  const headers = { ...(opts.headers || {}) };
+  if (session.token) headers.Authorization = `Bearer ${session.token}`;
+  const r = await fetch(path, { ...opts, headers });
+  if (r.status === 401 && !path.startsWith("/api/auth/login")) {
+    session.token = null;
+    showLogin("Tu sesión venció. Vuelve a entrar.");
+    throw new Error("Sesión vencida");
+  }
   if (!r.ok) {
     let detail = r.statusText;
     try {
@@ -348,7 +363,7 @@ function initSendForm(maxBytes) {
 
 // ---------- eventos en vivo ----------
 function connectStream() {
-  const es = new EventSource("/api/stream");
+  const es = new EventSource(`/api/stream?token=${encodeURIComponent(session.token)}`);
   const dot = $("conn-dot");
   const txt = $("conn-text");
   es.onopen = () => { dot.className = "dot on"; txt.textContent = "En vivo"; };
@@ -388,7 +403,138 @@ async function main() {
   }, 30000);
 }
 
-main().catch((e) => {
+// ---------- inicio de sesión y usuarios ----------
+function showLogin(message) {
+  $("login").hidden = false;
+  $("login-error").textContent = message || "";
+  $("login-error").hidden = !message;
+  try { $("login-user").value = localStorage.getItem("ultimoUsuario") || ""; } catch (_) { /* nada */ }
+  ($("login-user").value ? $("login-pin") : $("login-user")).focus();
+}
+
+async function askPinChange(force) {
+  const actual = force ? null : prompt("PIN actual:");
+  if (!force && actual === null) return;
+  const nuevo = prompt(force ? "Debes cambiar el PIN inicial. Nuevo PIN (4 dígitos):" : "Nuevo PIN (4 dígitos):");
+  if (nuevo === null) return;
+  const actualPin = force ? prompt("Confirma tu PIN actual:") : actual;
+  if (actualPin === null) return;
+  try {
+    await api("/api/auth/pin", { method: "POST", headers: { "Content-Type": "application/json" },
+                                 body: JSON.stringify({ actual: actualPin, nuevo }) });
+    alert("PIN actualizado");
+  } catch (e) {
+    alert(`No se pudo cambiar el PIN: ${e.message}`);
+    if (force) return askPinChange(true);
+  }
+}
+
+function applyUser(u) {
+  session.user = u;
+  $("user-name").textContent = `${u.nombre} · ${ROL_LABEL[u.rol]}`;
+  $("btn-usuarios").hidden = u.rol !== "admin";
+  const csv = (f) => `/api/export/${f}?token=${encodeURIComponent(session.token)}`;
+  $("csv-mensajes").href = csv("mensajes.csv");
+  $("csv-alertas").href = csv("alertas.csv");
+  const mando = u.rol !== "socorrista";
+  $("csv-mensajes").hidden = $("csv-alertas").hidden = !mando;
+  $("send-form").hidden = !mando;
+}
+
+async function renderUsers() {
+  const users = await api("/api/users");
+  const body = $("users-body");
+  body.replaceChildren();
+  for (const u of users) {
+    const tr = el("tr", u.activo ? "" : "inactivo");
+    tr.append(el("td", null, u.usuario), el("td", null, u.nombre), el("td", null, ROL_LABEL[u.rol]),
+              el("td", null, u.equipo || "—"));
+    const acts = el("td", "acciones");
+    const run = async (fn) => {
+      try { await fn(); await renderUsers(); } catch (e) { $("users-error").textContent = e.message; $("users-error").hidden = false; }
+    };
+    const patch = (data) => api(`/api/users/${encodeURIComponent(u.usuario)}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    acts.append(
+      actionButton("PIN", () => { const p = prompt(`Nuevo PIN para ${u.usuario} (4 dígitos):`); if (p) run(() => patch({ pin: p })); }),
+      actionButton("Equipo", () => { const v = prompt("Equipo:", u.equipo || ""); if (v !== null) run(() => patch({ equipo: v })); }),
+      actionButton("Rol", () => {
+        const v = prompt("Rol (admin, mando, socorrista):", u.rol);
+        if (v) run(() => patch({ rol: v.trim().toLowerCase() }));
+      }),
+      actionButton(u.activo ? "Desactivar" : "Activar", () => run(() => patch({ activo: !u.activo }))),
+      actionButton("Eliminar", () => {
+        if (confirm(`¿Eliminar el usuario ${u.usuario}? No se puede deshacer.`)) {
+          run(() => api(`/api/users/${encodeURIComponent(u.usuario)}`, { method: "DELETE" }));
+        }
+      }),
+    );
+    tr.append(acts);
+    body.append(tr);
+  }
+}
+
+function initAuthUi() {
+  $("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const usuario = $("login-user").value.trim().toLowerCase();
+    try {
+      const r = await api("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({ usuario, pin: $("login-pin").value }) });
+      session.token = r.token;
+      try { localStorage.setItem("ultimoUsuario", usuario); } catch (_) { /* nada */ }
+      $("login-pin").value = "";
+      $("login").hidden = true;
+      await boot();
+      if (r.pin_inicial) await askPinChange(true);
+    } catch (ex) {
+      $("login-pin").value = "";
+      $("login-error").textContent = ex.message;
+      $("login-error").hidden = false;
+    }
+  });
+  $("btn-salir").onclick = async () => {
+    try { await api("/api/auth/logout", { method: "POST" }); } catch (_) { /* nada */ }
+    session.token = null;
+    location.reload();
+  };
+  $("btn-usuario").onclick = () => askPinChange(false);
+  $("btn-usuarios").onclick = async () => { $("users").hidden = false; $("users-error").hidden = true; await renderUsers(); };
+  $("users-close").onclick = () => { $("users").hidden = true; };
+  $("user-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        usuario: $("nu-usuario").value.trim().toLowerCase(), nombre: $("nu-nombre").value.trim(),
+        rol: $("nu-rol").value, equipo: $("nu-equipo").value.trim() || null, pin: $("nu-pin").value }) });
+      e.target.reset();
+      $("users-error").hidden = true;
+      await renderUsers();
+    } catch (ex) {
+      $("users-error").textContent = ex.message;
+      $("users-error").hidden = false;
+    }
+  });
+}
+
+let started = false;
+async function boot() {
+  if (!session.token) return showLogin();
+  let user;
+  try {
+    user = await api("/api/auth/me");
+  } catch (_) {
+    return;  // api() ya mostró el login
+  }
+  applyUser(user);
+  if (!started) {
+    started = true;
+    await main();
+  }
+}
+
+initAuthUi();
+boot().catch((e) => {
   $("conn-text").textContent = `Error al iniciar: ${e.message}`;
   $("conn-dot").className = "dot off";
 });

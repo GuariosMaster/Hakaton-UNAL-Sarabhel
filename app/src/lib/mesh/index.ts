@@ -9,11 +9,12 @@ export interface RadioOptions {
   /** Servidor del puesto de mando y nombre de este teléfono (conexión "red-local"). */
   serverUrl: string;
   identity: LanIdentity;
+  token?: string;
 }
 
 export function createRadio(kind: RadioLink["kind"], events: RadioEvents, opts: RadioOptions): RadioLink {
   if (kind === "albergue") return new AlbergueRadio(events, opts.nodeUrl);
-  if (kind === "red-local") return new LanRadio(events, opts.serverUrl, opts.identity);
+  if (kind === "red-local") return new LanRadio(events, opts.serverUrl, opts.identity, opts.token);
   return new SimRadio(events);
 }
 

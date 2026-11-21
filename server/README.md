@@ -108,6 +108,13 @@ El firmware está en [`firmware/`](../firmware/) y los parámetros en [`firmware
 | Trama por aire | `TIPO|BAT_V|PANEL_V|CARGA_PCT|MENSAJE` (TIPO: MSG, TEL, POS, INFO) | Ej: `MSG|12.4|18.1|82|Albergue Coliseo: 280 personas` (texto máx. 36 bytes) |
 | USB Serial (gateway → PC) | JSON a 115.200 baudios | Ej: `{"nodo":2,"tipo":"MSG","bat":12.4,"panel":18.1,"carga":82,"msg":"...","rssi":-72}` |
 
+## Usuarios y sesiones
+
+Todo el API (salvo `/api/auth/login`, `/api/config` y la descarga de la app) pide una sesión. Al
+arrancar por primera vez se crea `admin` con el PIN de `ADMIN_PIN` (por defecto `1234`). Roles,
+permisos y API: [USUARIOS.md](../USUARIOS.md). Las pruebas (`tests/test_auth.py`) necesitan
+`pip install -r requirements-dev.txt`.
+
 ## Gestión de alertas y reportes
 
 - Cada alerta (mensaje crítico, zona de riesgo, batería baja) se guarda en la tabla `alerts` con

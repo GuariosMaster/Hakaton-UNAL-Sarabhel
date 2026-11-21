@@ -25,6 +25,12 @@ El resultado buscado no es solo que los nodos se hablen: es que esa información
 - **Con internet:** https://guariosmaster.github.io/Hakaton-UNAL-Sarabhel/ — el APK se compila automáticamente con GitHub Actions en cada cambio de `app/` y queda en la release [`apk-latest`](https://github.com/GuariosMaster/Hakaton-UNAL-Sarabhel/releases/tag/apk-latest).
 - **Sin internet, en el puesto de mando:** conectarse al Wi‑Fi del portátil y abrir `http://192.168.137.1:8080/descargar` (copiar antes el APK a `server/descargas/`).
 
+## Usuarios y roles
+
+Inicio de sesión con **usuario único + PIN de 4 dígitos** y tres roles: **administrador**, **puesto de
+mando** y **socorrista**. Pedir ayuda (SOS) nunca exige cuenta. Primer uso: usuario `admin`, PIN `1234`
+(se pide cambiarlo). Detalles en [USUARIOS.md](USUARIOS.md).
+
 ## Demo para la presentación
 
 `.\iniciar.ps1 -Radio escenario` reproduce un sismo guionizado (mensajes, SOS largo, zona de riesgo,
@@ -65,6 +71,8 @@ docker compose up -d --build
 - [x] **Escenario de demo guionizado** y guion de presentación ([DEMO.md](DEMO.md)).
 - [x] **Exportar CSV** de mensajes y alertas para entregar a las autoridades.
 - [x] **APK con firma fija**: las actualizaciones se instalan encima, sin desinstalar.
+- [x] **Inicio de sesión con PIN de 4 dígitos y roles** (administrador, puesto de mando, socorrista) en app y dashboard; bloqueo tras 5 intentos; entrada sin conexión para socorristas; botón de emergencia sin cuenta ([USUARIOS.md](USUARIOS.md)).
+- [x] **Mejoras de experiencia en la app**: teclado PIN grande, bandeja de salida (lo escrito sin conexión se envía solo al reconectar), reconexión automática, GPS listo al abrir, aviso sonoro y vibración con alertas nuevas, pestaña *Asignadas* para socorristas.
 - [x] **Firmware ESP32** (PlatformIO): gateway ESP32-S3 (USB JSON ↔ radio) y nodo de albergue (portal Wi‑Fi cautivo, API para la app, medición de batería/panel, telemetría cada 5 min, malla RHMesh, AES-128). Compila; falta probarlo en hardware.
 - [x] **Nodo de albergue simulado** en Python con la misma API y portal que el firmware, para probar la app y el portal sin hardware.
 - [x] Configuración de referencia de la red FSK (sin claves expuestas).
@@ -86,7 +94,6 @@ docker compose up -d --build
 - [ ] **Mapa offline** de Manizales (mosaicos servidos en local; hoy el mapa usa internet).
 - [ ] **Zonas de riesgo oficiales** (POT / Corpocaldas); las actuales son polígonos de ejemplo.
 - [ ] Estadísticas en el dashboard (mensajes por prioridad, tiempos de atención).
-- [ ] Contraseña de acceso al dashboard.
 
 **Documentación**
 - [ ] Unificar las propuestas técnicas en un solo documento alineado con lo construido (el borrador `add_fsk_v1.md` aún no está en el repositorio).

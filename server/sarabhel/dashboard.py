@@ -10,13 +10,15 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
 from . import config, db
+from .auth import ROLES, Auth, AuthError
 from .bus import Bus
 
 log = config.setup_logging("dashboard")
@@ -44,11 +46,43 @@ class Hub:
 
 hub = Hub()
 bus = Bus("dashboard")
+_auth: Auth | None = None
+
+
+def get_auth() -> Auth:
+    global _auth
+    if _auth is None:
+        _auth = Auth()
+    return _auth
+
+
+def need(*roles: str):
+    """Dependencia: exige una sesión válida y uno de los roles indicados (todos si no se indica).
+    El token va en la cabecera Authorization: Bearer … o, para enlaces y SSE, en ?token=…"""
+    allowed = roles or ROLES
+
+    def dep(authorization: str | None = Header(default=None), token: str | None = Query(default=None)) -> dict:
+        tok = authorization[7:] if authorization and authorization.lower().startswith("bearer ") else token
+        try:
+            user = get_auth().session(tok)
+        except AuthError as e:
+            raise HTTPException(e.status, e.message)
+        if user["rol"] not in allowed:
+            raise HTTPException(403, "Tu rol no tiene permiso para esta acción")
+        return user
+
+    return dep
+
+
+ANY = need()
+MANDO = need("admin", "mando")
+ADMIN = need("admin")
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     db.connect().close()  # crea el esquema si el dashboard arranca primero
+    get_auth()            # crea las tablas de usuarios y el admin inicial
     hub.loop = asyncio.get_running_loop()
     bus.subscribe("events/#", hub.forward)
     # Conectar al broker en segundo plano: la web (y la descarga de la app) debe
@@ -61,8 +95,85 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Sarabhel — Puesto de mando", lifespan=lifespan)
 # La app móvil (Capacitor) carga desde su propio origen (http://localhost en Android)
 # y consulta esta API por la red local del puesto de mando.
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST", "PATCH"],
-                   allow_headers=["Content-Type"])
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST", "PATCH", "DELETE"],
+                   allow_headers=["Content-Type", "Authorization"])
+
+
+@app.exception_handler(AuthError)
+def _auth_error(_req: Request, exc: AuthError):
+    return JSONResponse({"detail": exc.message}, status_code=exc.status)
+
+
+# --- Inicio de sesión ------------------------------------------------------------
+class LoginRequest(BaseModel):
+    usuario: str = Field(min_length=1, max_length=20)
+    pin: str = Field(pattern=r"^\d{4}$")
+
+
+class PinChange(BaseModel):
+    actual: str = Field(pattern=r"^\d{4}$")
+    nuevo: str = Field(pattern=r"^\d{4}$")
+
+
+class UserCreate(BaseModel):
+    usuario: str
+    nombre: str = Field(min_length=1, max_length=40)
+    rol: str
+    pin: str = Field(pattern=r"^\d{4}$")
+    equipo: str | None = Field(default=None, max_length=60)
+
+
+class UserUpdate(BaseModel):
+    nombre: str | None = Field(default=None, min_length=1, max_length=40)
+    rol: str | None = None
+    equipo: str | None = Field(default=None, max_length=60)
+    activo: bool | None = None
+    pin: str | None = Field(default=None, pattern=r"^\d{4}$")
+
+
+@app.post("/api/auth/login")
+def login(req: LoginRequest):
+    return get_auth().login(req.usuario, req.pin)
+
+
+@app.get("/api/auth/me")
+def me(user: dict = Depends(ANY)):
+    return user
+
+
+@app.post("/api/auth/logout")
+def logout(authorization: str | None = Header(default=None)):
+    if authorization and authorization.lower().startswith("bearer "):
+        get_auth().logout(authorization[7:])
+    return {"status": "ok"}
+
+
+@app.post("/api/auth/pin")
+def change_pin(req: PinChange, user: dict = Depends(ANY)):
+    get_auth().change_own_pin(user["usuario"], req.actual, req.nuevo)
+    return {"status": "ok"}
+
+
+# --- Usuarios (solo administrador) ---------------------------------------------
+@app.get("/api/users")
+def list_users(_u: dict = Depends(ADMIN)):
+    return get_auth().list_users()
+
+
+@app.post("/api/users", status_code=201)
+def create_user(req: UserCreate, _u: dict = Depends(ADMIN)):
+    return get_auth().create_user(req.usuario, req.nombre, req.rol, req.pin, req.equipo)
+
+
+@app.patch("/api/users/{usuario}")
+def update_user(usuario: str, req: UserUpdate, user: dict = Depends(ADMIN)):
+    return get_auth().update_user(usuario, by=user["usuario"], **req.model_dump(exclude_none=True))
+
+
+@app.delete("/api/users/{usuario}")
+def delete_user(usuario: str, user: dict = Depends(ADMIN)):
+    get_auth().delete_user(usuario, by=user["usuario"])
+    return {"status": "ok"}
 
 
 def query(sql: str, params: tuple = ()) -> list[dict]:
@@ -122,7 +233,7 @@ def _require_bus() -> None:
 # entran al bus igual que los que llegan por radio, así que se clasifican, se
 # guardan y se reparten a los demás teléfonos y al puesto de mando.
 @app.post("/api/device/hello")
-def device_hello(req: DeviceHello):
+def device_hello(req: DeviceHello, _u: dict = Depends(ANY)):
     _require_bus()
     bus.publish(config.rx_topic("info", req.node_id), {"from": req.node_id, "long_name": req.long_name,
                                      "short_name": req.short_name or req.long_name[:4].upper(),
@@ -131,7 +242,7 @@ def device_hello(req: DeviceHello):
 
 
 @app.post("/api/device/text")
-def device_text(req: DeviceText):
+def device_text(req: DeviceText, _u: dict = Depends(ANY)):
     _require_bus()
     packet_id = secrets.randbits(31)
     bus.publish(config.rx_topic("msg", req.node_id), {
@@ -141,7 +252,7 @@ def device_text(req: DeviceText):
 
 
 @app.post("/api/device/position")
-def device_position(req: DevicePosition):
+def device_position(req: DevicePosition, _u: dict = Depends(ANY)):
     _require_bus()
     bus.publish(config.rx_topic("pos", req.node_id), {"from": req.node_id, "lat": req.lat, "lon": req.lon,
                                      "alt": req.alt, "ts": db.now()})
@@ -156,12 +267,12 @@ def get_config():
 
 
 @app.get("/api/nodes")
-def get_nodes():
+def get_nodes(_u: dict = Depends(ANY)):
     return query("SELECT * FROM nodes ORDER BY last_heard DESC")
 
 
 @app.get("/api/messages")
-def get_messages(limit: int = Query(100, ge=1, le=1000)):
+def get_messages(limit: int = Query(100, ge=1, le=1000), _u: dict = Depends(ANY)):
     return query(
         """SELECT m.*, n.long_name FROM messages m
            LEFT JOIN nodes n ON n.node_id = m.from_node
@@ -169,7 +280,7 @@ def get_messages(limit: int = Query(100, ge=1, le=1000)):
 
 
 @app.get("/api/positions/{node_id}")
-def get_positions(node_id: str, limit: int = Query(200, ge=1, le=5000)):
+def get_positions(node_id: str, limit: int = Query(200, ge=1, le=5000), _u: dict = Depends(ANY)):
     rows = query("SELECT lat, lon, alt, ts FROM positions WHERE node_id = ? ORDER BY ts DESC LIMIT ?",
                  (node_id, limit))
     return list(reversed(rows))
@@ -183,7 +294,7 @@ class AlertUpdate(BaseModel):
 
 
 @app.get("/api/alerts")
-def get_alerts(limit: int = Query(100, ge=1, le=1000)):
+def get_alerts(limit: int = Query(100, ge=1, le=1000), _u: dict = Depends(ANY)):
     """Alertas recientes: primero las pendientes (nueva, en atención), luego las atendidas."""
     return query(
         """SELECT * FROM alerts ORDER BY
@@ -192,12 +303,20 @@ def get_alerts(limit: int = Query(100, ge=1, le=1000)):
 
 
 @app.patch("/api/alerts/{alert_id}")
-def update_alert(alert_id: int, req: AlertUpdate):
+def update_alert(alert_id: int, req: AlertUpdate, user: dict = Depends(ANY)):
     changes = req.model_dump(exclude_none=True)
     if not changes:
         raise HTTPException(400, "Nada que actualizar")
     conn = db.connect()
     try:
+        if user["rol"] == "socorrista":
+            row = conn.execute("SELECT equipo FROM alerts WHERE id = ?", (alert_id,)).fetchone()
+            if not row:
+                raise HTTPException(404, "Alerta no encontrada")
+            if not user.get("equipo") or (row["equipo"] or "").strip().lower() != user["equipo"].strip().lower():
+                raise HTTPException(403, "Solo puedes actualizar las alertas asignadas a tu equipo")
+            if "equipo" in changes:
+                raise HTTPException(403, "Solo el puesto de mando asigna equipos")
         with conn:
             sets = ", ".join(f"{k} = ?" for k in changes)
             cur = conn.execute(f"UPDATE alerts SET {sets}, updated_ts = ? WHERE id = ?",
@@ -232,7 +351,7 @@ def _fecha(ts) -> str:
 
 
 @app.get("/api/export/mensajes.csv")
-def export_messages():
+def export_messages(_u: dict = Depends(MANDO)):
     rows = query("""SELECT m.*, n.long_name FROM messages m LEFT JOIN nodes n ON n.node_id = m.from_node
                     ORDER BY m.ts""")
     return _csv(rows, ["fecha", "direction", "from_node", "long_name", "to_node", "priority", "text", "lat", "lon"],
@@ -240,14 +359,14 @@ def export_messages():
 
 
 @app.get("/api/export/alertas.csv")
-def export_alerts():
+def export_alerts(_u: dict = Depends(MANDO)):
     rows = query("SELECT * FROM alerts ORDER BY ts")
     return _csv(rows, ["fecha", "type", "node_id", "long_name", "text", "zone", "battery", "lat", "lon",
                        "estado", "equipo", "nota"], "alertas.csv")
 
 
 @app.get("/api/zones")
-def get_zones():
+def get_zones(_u: dict = Depends(ANY)):
     path = Path(config.ZONES_FILE)
     if not path.exists():
         return {"type": "FeatureCollection", "features": []}
@@ -255,7 +374,7 @@ def get_zones():
 
 
 @app.post("/api/send", status_code=202)
-def send(req: SendRequest):
+def send(req: SendRequest, _u: dict = Depends(MANDO)):
     if not bus.client.is_connected():
         raise HTTPException(503, "Broker no disponible")
     bus.publish(config.APP_SEND, {"text": req.text, "to": req.to})
@@ -263,7 +382,7 @@ def send(req: SendRequest):
 
 
 @app.get("/api/stream")
-async def stream():
+async def stream(_u: dict = Depends(ANY)):
     q: asyncio.Queue = asyncio.Queue(maxsize=500)
     hub.clients.add(q)
 

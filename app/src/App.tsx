@@ -1,67 +1,75 @@
 import { useEffect, useState } from "react";
 import { BottomNav, Header, Pill, type Tab } from "./components/ui";
+import { load, save } from "./lib/util";
+import { UsersScreen } from "./screens/AccountScreen";
 import {
   CommandAlertsScreen, CommandChatScreen, CommandEnergyScreen, CommandMapScreen, CommandSettingsScreen, type Focus,
 } from "./screens/command/CommandScreens";
+import { AssignedScreen } from "./screens/field/AssignedScreen";
 import { FieldChatScreen } from "./screens/field/ChatScreen";
 import { ConnectScreen } from "./screens/field/ConnectScreen";
 import { FieldMapScreen } from "./screens/field/MapScreen";
 import { SosScreen } from "./screens/field/SosScreen";
+import { LoginScreen } from "./screens/LoginScreen";
+import { useAuth } from "./store/auth";
 import { useCommand } from "./store/command";
 import { useField } from "./store/field";
-import { load, save } from "./lib/util";
 
 type Mode = "campo" | "mando";
 
+/**
+ * Qué ve cada quien:
+ *  - Sin cuenta (emergencia): modo Campo con SOS, mensajes y mapa. Nunca se bloquea pedir ayuda.
+ *  - Socorrista: modo Campo + "Asignadas" (alertas de su equipo).
+ *  - Puesto de mando: modo Mando (y puede pasar a Campo).
+ *  - Administrador: lo mismo que Mando + administración de usuarios.
+ */
 export default function App() {
-  const [mode, setMode] = useState<Mode | null>(() => load<Mode | null>("modo", null));
-  const choose = (m: Mode | null) => {
+  const { session, guest } = useAuth();
+  const [mode, setMode] = useState<Mode>(() => load<Mode>("modo", "mando"));
+  const choose = (m: Mode) => {
     save("modo", m);
     setMode(m);
   };
-  if (mode === "campo") return <FieldApp onChangeMode={() => choose("mando")} />;
-  if (mode === "mando") return <CommandApp onChangeMode={() => choose("campo")} />;
-  return <ModeSelect onChoose={choose} />;
+
+  if (!session && !guest) return <LoginScreen />;
+  if (!session || session.rol === "socorrista") return <FieldApp />;
+  return mode === "campo"
+    ? <FieldApp onChangeMode={() => choose("mando")} />
+    : <CommandApp onChangeMode={() => choose("campo")} />;
 }
 
-function ModeSelect({ onChoose }: { onChoose: (m: Mode) => void }) {
-  return (
-    <div className="mode-select">
-      <div className="brand">
-        <div className="logo">📡</div>
-        <h1>Red de Emergencia</h1>
-        <p className="muted">Comunicación sin internet ni señal celular</p>
-      </div>
-      <button type="button" className="mode-card" onClick={() => onChoose("campo")}>
-        <span className="icon">🧑‍🚒</span>
-        <span><b>Estoy en campo</b><br /><small>Me conecto al Wi‑Fi del albergue para pedir ayuda y enviar reportes por radio</small></span>
-      </button>
-      <button type="button" className="mode-card" onClick={() => onChoose("mando")}>
-        <span className="icon">🗺️</span>
-        <span><b>Puesto de mando</b><br /><small>Veo el mapa, las alertas y los mensajes de toda la red desde el servidor local</small></span>
-      </button>
-    </div>
-  );
-}
+type FieldTab = "sos" | "chat" | "mapa" | "asignadas" | "conexion";
 
-type FieldTab = "sos" | "chat" | "mapa" | "conexion";
-
-function FieldApp({ onChangeMode }: { onChangeMode: () => void }) {
+function FieldApp({ onChangeMode }: { onChangeMode?: () => void }) {
   const [tab, setTab] = useState<FieldTab>("sos");
-  const { status, nodes, myNum, kind } = useField();
+  const { status, nodes, myNum, kind, autoConnect, locate, messages } = useField();
+  const session = useAuth((s) => s.session);
   const me = myNum != null ? nodes[myNum] : undefined;
+  const queued = messages.filter((m) => m.mine && m.status === "en-cola").length;
+
+  // Al abrir: reconectar a la última red usada y tomar la ubicación GPS para que el SOS sea inmediato.
+  useEffect(() => {
+    autoConnect();
+    void locate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const tone = status === "conectado" ? "ok" : status === "desconectado" ? "off" : "warn";
   const label = status === "conectado"
-    ? `${kind === "simulador" ? "Demo" : kind === "red-local" ? "Puesto" : me?.shortName ?? "Albergue"}${kind !== "red-local" && me?.battery != null ? ` · 🔋${me.battery}%` : ""}`
-    : status === "desconectado" ? "Sin conexión" : "Conectando…";
+    ? `${kind === "simulador" ? "Demo" : kind === "red-local" ? "Puesto" : me?.shortName ?? me?.longName?.slice(0, 10) ?? "Albergue"}${kind !== "red-local" && me?.battery != null ? ` · 🔋${me.battery}%` : ""}`
+    : status === "desconectado" ? (queued ? `Sin conexión · ${queued} en cola` : "Sin conexión") : "Conectando…";
 
   const tabs: Tab<FieldTab>[] = [
     { id: "sos", label: "SOS", icon: "🆘" },
-    { id: "chat", label: "Mensajes", icon: "💬" },
+    { id: "chat", label: "Mensajes", icon: "💬", badge: queued || undefined },
     { id: "mapa", label: "Mapa", icon: "🗺️" },
-    { id: "conexion", label: "Conexión", icon: "📶" },
+    ...(session?.rol === "socorrista" ? [{ id: "asignadas" as const, label: "Asignadas", icon: "🚑" }] : []),
+    { id: "conexion", label: session ? "Cuenta" : "Conexión", icon: session ? "👤" : "📶" },
   ];
-  const titles: Record<FieldTab, string> = { sos: "Emergencia", chat: "Mensajes", mapa: "Mapa", conexion: "Conexión" };
+  const titles: Record<FieldTab, string> = {
+    sos: "Emergencia", chat: "Mensajes", mapa: "Mapa", asignadas: "Alertas de mi equipo", conexion: session ? "Conexión y cuenta" : "Conexión",
+  };
 
   return (
     <div className="app">
@@ -70,6 +78,7 @@ function FieldApp({ onChangeMode }: { onChangeMode: () => void }) {
         {tab === "sos" && <SosScreen />}
         {tab === "chat" && <FieldChatScreen />}
         {tab === "mapa" && <FieldMapScreen />}
+        {tab === "asignadas" && <AssignedScreen />}
         {tab === "conexion" && <ConnectScreen onChangeMode={onChangeMode} />}
       </main>
       <BottomNav tabs={tabs} active={tab} onChange={setTab} />
@@ -77,29 +86,32 @@ function FieldApp({ onChangeMode }: { onChangeMode: () => void }) {
   );
 }
 
-type CommandTab = "alertas" | "mapa" | "chat" | "energia" | "ajustes";
+type CommandTab = "alertas" | "mapa" | "chat" | "energia" | "ajustes" | "usuarios";
 
 function CommandApp({ onChangeMode }: { onChangeMode: () => void }) {
-  const { status, alerts, url, connect } = useCommand();
-  const [tab, setTab] = useState<CommandTab>(status === "conectado" ? "alertas" : "ajustes");
+  const { status, alerts, connect } = useCommand();
+  const session = useAuth((s) => s.session);
+  const [tab, setTab] = useState<CommandTab>("alertas");
   const [focus, setFocus] = useState<Focus>();
 
-  // Intentar reconectar al servidor guardado al abrir la app.
+  // Conectar al servidor de la sesión al abrir.
   useEffect(() => {
-    if (useCommand.getState().status === "desconectado") void connect(url);
+    if (session && useCommand.getState().status === "desconectado") void connect(session.serverUrl);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-
   const tone = status === "conectado" ? "ok" : status === "conectando" ? "warn" : "off";
+  const pending = alerts.filter((a) => a.estado === "nueva").length;
   const tabs: Tab<CommandTab>[] = [
-    { id: "alertas", label: "Alertas", icon: "🚨", badge: alerts.filter((a) => a.estado === "nueva").length },
+    { id: "alertas", label: "Alertas", icon: "🚨", badge: pending },
     { id: "mapa", label: "Mapa", icon: "🗺️" },
     { id: "chat", label: "Mensajes", icon: "💬" },
     { id: "energia", label: "Energía", icon: "🔋" },
-    { id: "ajustes", label: "Servidor", icon: "⚙️" },
+    { id: "ajustes", label: "Ajustes", icon: "⚙️" },
   ];
-  const titles: Record<CommandTab, string> = { alertas: "Alertas", mapa: "Mapa de la red", chat: "Mensajes", energia: "Energía", ajustes: "Servidor" };
+  const titles: Record<CommandTab, string> = {
+    alertas: "Alertas", mapa: "Mapa de la red", chat: "Mensajes", energia: "Energía", ajustes: "Ajustes", usuarios: "Usuarios",
+  };
 
   return (
     <div className="app">
@@ -108,6 +120,11 @@ function CommandApp({ onChangeMode }: { onChangeMode: () => void }) {
           {status === "conectado" ? "En vivo" : status === "conectando" ? "Conectando…" : "Sin servidor"}
         </Pill>
       } />
+      {status === "error" && tab !== "ajustes" && (
+        <button type="button" className="banner" onClick={() => setTab("ajustes")}>
+          ⚠ Sin conexión con el servidor. Toca para revisar.
+        </button>
+      )}
       <main>
         {tab === "alertas" && (
           <CommandAlertsScreen onLocate={(lat, lon) => { setFocus({ lat, lon, seq: Date.now() }); setTab("mapa"); }} />
@@ -115,9 +132,13 @@ function CommandApp({ onChangeMode }: { onChangeMode: () => void }) {
         {tab === "mapa" && <CommandMapScreen focus={focus} />}
         {tab === "chat" && <CommandChatScreen />}
         {tab === "energia" && <CommandEnergyScreen />}
-        {tab === "ajustes" && <CommandSettingsScreen onChangeMode={onChangeMode} />}
+        {tab === "ajustes" && (
+          <CommandSettingsScreen onChangeMode={onChangeMode}
+                                 onUsers={session?.rol === "admin" ? () => setTab("usuarios") : undefined} />
+        )}
+        {tab === "usuarios" && <UsersScreen onBack={() => setTab("ajustes")} />}
       </main>
-      <BottomNav tabs={tabs} active={tab} onChange={setTab} />
+      <BottomNav tabs={tabs} active={tab === "usuarios" ? "ajustes" : tab} onChange={setTab} />
     </div>
   );
 }

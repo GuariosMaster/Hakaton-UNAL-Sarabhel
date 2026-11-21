@@ -31,6 +31,10 @@ ejemplo `http://10.165.0.184:8080`. Con `-Radio ninguno` no se simulan nodos FSK
 > (PowerShell como administrador):
 > `New-NetFirewallRule -DisplayName "Red Emergencia (pruebas)" -Direction Inbound -Protocol TCP -LocalPort 8080,8765 -Action Allow -Profile Private,Public`
 
+> **Primer inicio de sesión:** usuario `admin`, PIN `1234` (se pide cambiarlo). Crea usuarios de
+> prueba desde el dashboard (**👥 Usuarios**): por ejemplo un socorrista con equipo “Bomberos 2”.
+> Ver [USUARIOS.md](USUARIOS.md).
+
 ## 2. Iniciar un nodo de albergue simulado
 
 En otra ventana, desde la raíz del proyecto:
@@ -50,8 +54,11 @@ verá cualquier persona al conectarse al Wi‑Fi “Emergencia …” de un nodo
 → Conectar al nodo. (Con el nodo real se deja la dirección por defecto, `http://192.168.4.1`.)
 Prueba el SOS y los mensajes rápidos: llegan al servidor con la ubicación GPS del teléfono.
 
-**App, modo Campo → 🖥️ Puesto de mando:** tu nombre y `http://<ip-del-pc>:8080`. Sirve para probar
-mensajes entre varios teléfonos.
+**App, modo Campo → 🖥️ Puesto de mando:** entra con tu usuario (en la pantalla de inicio, “⚙️ Servidor”
+= `http://<ip-del-pc>:8080`). Sirve para probar mensajes entre varios teléfonos.
+
+**Sin cuenta:** en la pantalla de inicio, **🆘 Emergencia** entra directo a SOS y mensajes (solo
+Wi‑Fi del albergue o demo).
 
 **Puesto de mando:** en el portátil abre `http://localhost:8080`, o en otro teléfono la app en modo
 **Puesto de mando**. Desde ahí se ven alertas, mapa y la **energía** de cada nodo, y se pueden enviar
