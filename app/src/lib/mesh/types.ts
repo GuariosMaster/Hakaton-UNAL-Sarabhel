@@ -40,7 +40,7 @@ export interface RadioEvents {
 }
 
 export interface RadioLink {
-  readonly kind: "bluetooth" | "simulador";
+  readonly kind: "bluetooth" | "simulador" | "red-local";
   connect(): Promise<void>;
   disconnect(): Promise<void>;
   /** Devuelve el id de paquete para seguir su confirmación. */

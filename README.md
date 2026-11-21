@@ -27,6 +27,11 @@ El resultado buscado no es solo que los nodos se hablen: es que esa información
 - **Sin internet, en el puesto de mando:** conectarse al Wi‑Fi del portátil y abrir
   `http://192.168.137.1:8080/descargar` (copiar antes el APK a `server/descargas/`).
 
+## Probar la app entre teléfonos
+
+Sin nodos LoRa, el servidor del portátil reparte los mensajes entre los teléfonos conectados a
+su Wi‑Fi (conexión **📶 Red local** de la app). Guía paso a paso en [PRUEBAS.md](PRUEBAS.md).
+
 ## Probar sin hardware
 
 El listener tiene un modo simulado con 5 nodos ficticios en Manizales:

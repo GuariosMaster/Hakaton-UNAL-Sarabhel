@@ -1,6 +1,7 @@
 """Dashboard del puesto de mando: API REST + eventos en vivo (SSE) + mapa web."""
 import asyncio
 import json
+import secrets
 import sqlite3
 import threading
 from contextlib import asynccontextmanager
@@ -84,6 +85,61 @@ class SendRequest(BaseModel):
         if len(v.encode("utf-8")) > config.MAX_TEXT_BYTES:
             raise ValueError(f"Máximo {config.MAX_TEXT_BYTES} bytes por mensaje LoRa")
         return v
+
+
+NODE_ID = r"^![0-9a-f]{8}$"
+
+
+class DeviceHello(BaseModel):
+    node_id: str = Field(pattern=NODE_ID)
+    long_name: str = Field(min_length=1, max_length=40)
+    short_name: str | None = Field(default=None, max_length=4)
+
+
+class DeviceText(SendRequest):
+    node_id: str = Field(pattern=NODE_ID)
+
+
+class DevicePosition(BaseModel):
+    node_id: str = Field(pattern=NODE_ID)
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+    alt: float | None = None
+
+
+def _require_bus() -> None:
+    if not bus.client.is_connected():
+        raise HTTPException(503, "Broker no disponible")
+
+
+# --- Teléfonos conectados por Wi-Fi (modo Campo "Red local") ---------------
+# Un teléfono en el Wi-Fi del puesto de mando actúa como un nodo más: sus mensajes
+# entran al bus igual que los que llegan por radio, así que se clasifican, se
+# guardan y se reparten a los demás teléfonos y al puesto de mando.
+@app.post("/api/device/hello")
+def device_hello(req: DeviceHello):
+    _require_bus()
+    bus.publish(config.RX_NODEINFO, {"from": req.node_id, "long_name": req.long_name,
+                                     "short_name": req.short_name or req.long_name[:4].upper(),
+                                     "ts": db.now()})
+    return {"status": "ok"}
+
+
+@app.post("/api/device/text")
+def device_text(req: DeviceText):
+    _require_bus()
+    packet_id = secrets.randbits(31)
+    bus.publish(config.RX_TEXT, {"packet_id": packet_id, "from": req.node_id, "to": req.to or "^all",
+                                 "channel": 0, "text": req.text, "ts": db.now(), "rssi": None, "snr": None})
+    return {"packet_id": packet_id}
+
+
+@app.post("/api/device/position")
+def device_position(req: DevicePosition):
+    _require_bus()
+    bus.publish(config.RX_POSITION, {"from": req.node_id, "lat": req.lat, "lon": req.lon,
+                                     "alt": req.alt, "ts": db.now()})
+    return {"status": "ok"}
 
 
 @app.get("/api/config")

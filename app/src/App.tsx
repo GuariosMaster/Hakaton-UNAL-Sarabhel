@@ -52,7 +52,7 @@ function FieldApp({ onChangeMode }: { onChangeMode: () => void }) {
   const me = myNum != null ? nodes[myNum] : undefined;
   const tone = status === "conectado" ? "ok" : status === "desconectado" ? "off" : "warn";
   const label = status === "conectado"
-    ? `${kind === "bluetooth" ? me?.shortName ?? "Nodo" : "Demo"}${me?.battery != null ? ` · ${me.battery}%` : ""}`
+    ? `${kind === "simulador" ? "Demo" : kind === "red-local" ? "Wi‑Fi" : me?.shortName ?? "Nodo"}${me?.battery != null ? ` · ${me.battery}%` : ""}`
     : status === "desconectado" ? "Sin nodo" : "Conectando…";
 
   const tabs: Tab<FieldTab>[] = [

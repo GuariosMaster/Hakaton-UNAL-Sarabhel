@@ -11,6 +11,11 @@ type Kind = RadioLink["kind"];
 
 interface FieldState {
   kind: Kind;
+  /** Para la conexión "Red local": servidor del puesto de mando y nombre de este teléfono. */
+  serverUrl: string;
+  deviceName: string;
+  deviceId: string;
+  setLanSettings: (serverUrl: string, deviceName: string) => void;
   status: LinkStatus;
   detail?: string;
   myNum?: number;
@@ -27,6 +32,18 @@ interface FieldState {
 
 const MAX_MESSAGES = 300;
 let radio: RadioLink | undefined;
+
+// Identificador estable de este teléfono en la red, con formato de nodo Meshtastic.
+function deviceId(): string {
+  const saved = load<string | null>("campo.idDispositivo", null);
+  if (saved && /^![0-9a-f]{8}$/.test(saved)) return saved;
+  const id = "!" + Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => b.toString(16).padStart(2, "0")).join("");
+  save("campo.idDispositivo", id);
+  return id;
+}
+
+const shortFrom = (name: string) =>
+  (name.split(/\s+/).map((w) => w[0]).join("") || name).slice(0, 4).toUpperCase();
 
 export const useField = create<FieldState>()((set, get) => {
   const addMessage = (m: ChatMessage) =>
@@ -57,8 +74,18 @@ export const useField = create<FieldState>()((set, get) => {
     }
   };
 
+  const id = deviceId();
+
   return {
     kind: load<Kind>("campo.tipo", "simulador"),
+    serverUrl: load("campo.servidor", "http://192.168.137.1:8080"),
+    deviceName: load("campo.nombre", `Teléfono ${id.slice(-4).toUpperCase()}`),
+    deviceId: id,
+    setLanSettings: (serverUrl, deviceName) => {
+      save("campo.servidor", serverUrl);
+      save("campo.nombre", deviceName);
+      set({ serverUrl, deviceName });
+    },
     status: "desconectado",
     nodes: {},
     messages: load<ChatMessage[]>("campo.mensajes", []),
@@ -84,6 +111,9 @@ export const useField = create<FieldState>()((set, get) => {
                        priority: classify(m.text), mine: false });
         },
         ack: (packetId, ok) => updateMessage(packetId, { status: ok ? "en-red" : "fallo" }),
+      }, {
+        serverUrl: get().serverUrl,
+        identity: { id: get().deviceId, longName: get().deviceName, shortName: shortFrom(get().deviceName) },
       });
       try {
         await radio.connect();

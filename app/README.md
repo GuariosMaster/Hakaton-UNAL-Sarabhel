@@ -12,6 +12,14 @@ Campo:  [App] ─Bluetooth─► [Nodo LoRa] ~~~ malla LoRa ~~~► [Gateway] ─
 Mando:  [App] ─Wi‑Fi local (hotspot del portátil)───────────────────────────► [Servidor]
 ```
 
+En modo Campo hay tres formas de conectarse:
+
+- **🔵 Bluetooth**: al nodo LoRa propio (uso real en campo).
+- **📶 Red local**: por Wi‑Fi al servidor del puesto de mando, que reparte los mensajes entre
+  teléfonos. Sirve para probar entre varios teléfonos sin nodos ([PRUEBAS.md](../PRUEBAS.md)) y
+  para teléfonos cerca del puesto de mando.
+- **🧪 Modo demo**: todo simulado dentro del teléfono.
+
 Los dos modos tienen **modo demo** (radio simulada en Campo, servidor en modo `sim` en Mando),
 así que la app se puede presentar sin el dispositivo físico.
 

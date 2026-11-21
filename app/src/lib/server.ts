@@ -92,6 +92,38 @@ export class ServerClient {
     }
   }
 
+  // --- Teléfono como nodo por Wi-Fi (modo Campo "Red local") ---
+  private async post<T>(path: string, body: unknown): Promise<T> {
+    const r = await fetch(this.base + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) {
+      let detail = r.statusText;
+      try {
+        const b = await r.json();
+        detail = Array.isArray(b.detail) ? b.detail.map((d: { msg: string }) => d.msg).join("; ") : b.detail;
+      } catch { /* sin cuerpo JSON */ }
+      throw new Error(detail);
+    }
+    return r.json() as Promise<T>;
+  }
+
+  deviceHello(nodeId: string, longName: string, shortName?: string) {
+    return this.post<{ status: string }>("/api/device/hello",
+      { node_id: nodeId, long_name: longName, short_name: shortName });
+  }
+
+  deviceText(nodeId: string, text: string, to?: string | null) {
+    return this.post<{ packet_id: number }>("/api/device/text", { node_id: nodeId, text, to: to || null });
+  }
+
+  devicePosition(nodeId: string, lat: number, lon: number, alt?: number) {
+    return this.post<{ status: string }>("/api/device/position", { node_id: nodeId, lat, lon, alt });
+  }
+
   /** Eventos en vivo (SSE). Devuelve una función para cerrar la conexión. */
   stream(h: StreamHandlers): () => void {
     const es = new EventSource(this.base + "/api/stream");

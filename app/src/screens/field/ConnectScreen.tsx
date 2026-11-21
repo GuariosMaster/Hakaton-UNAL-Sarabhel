@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ago } from "../../lib/util";
 import { useField } from "../../store/field";
 
@@ -8,15 +9,25 @@ const STATUS_LABEL = {
   conectado: "Conectado",
 } as const;
 
-/** Tarjeta para conectar el nodo LoRa (Bluetooth) o usar el modo demostración. */
+const KIND_LABEL = {
+  bluetooth: "Nodo por Bluetooth",
+  "red-local": "Red local (Wi‑Fi del puesto de mando)",
+  simulador: "Modo demostración",
+} as const;
+
+/** Tarjeta para conectar: nodo LoRa por Bluetooth, red local por Wi-Fi o modo demostración. */
 export function ConnectCard({ compact = false }: { compact?: boolean }) {
-  const { status, detail, kind, connect, disconnect } = useField();
+  const { status, detail, kind, connect, disconnect, serverUrl, deviceName, setLanSettings } = useField();
   const busy = status === "conectando" || status === "configurando";
+  const [showLan, setShowLan] = useState(false);
+  const [url, setUrl] = useState(serverUrl);
+  const [name, setName] = useState(deviceName);
 
   if (status === "conectado") {
     return (
       <div className="card">
-        <p><b>{STATUS_LABEL[status]}</b> · {kind === "bluetooth" ? "Nodo por Bluetooth" : "Modo demostración"}</p>
+        <p><b>{STATUS_LABEL[status]}</b> · {KIND_LABEL[kind]}</p>
+        {kind === "red-local" && <p className="muted">Como “{deviceName}” en {serverUrl}</p>}
         <button type="button" onClick={() => void disconnect()}>Desconectar</button>
       </div>
     );
@@ -24,19 +35,40 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
 
   return (
     <div className={`card ${compact ? "warn" : ""}`}>
-      <p><b>{busy ? STATUS_LABEL[status] : "Conecta tu nodo LoRa"}</b></p>
+      <p><b>{busy ? (detail && kind === "red-local" ? detail : STATUS_LABEL[status]) : "Conecta tu nodo LoRa"}</b></p>
       {!compact && (
         <p className="muted">
           Enciende tu dispositivo y activa el Bluetooth del teléfono. No se necesita internet ni señal celular.
         </p>
       )}
-      {detail && status === "desconectado" && <p className="error">{detail}</p>}
+      {detail && status === "desconectado" && detail !== "usuario" && <p className="error">{detail}</p>}
       <div className="row">
         <button type="button" className="primary" disabled={busy} onClick={() => void connect("bluetooth")}>
           🔵 Bluetooth
         </button>
-        <button type="button" disabled={busy} onClick={() => void connect("simulador")}>🧪 Modo demo</button>
+        <button type="button" disabled={busy} onClick={() => setShowLan((v) => !v)}>📶 Red local</button>
       </div>
+      <button type="button" disabled={busy} onClick={() => void connect("simulador")}>🧪 Modo demo</button>
+
+      {showLan && (
+        <form className="lan-form" onSubmit={(e) => {
+          e.preventDefault();
+          setLanSettings(url.trim(), name.trim() || deviceName);
+          void connect("red-local");
+        }}>
+          <p className="muted">
+            Conéctate al Wi‑Fi del puesto de mando. Tus mensajes llegan a los demás teléfonos y al puesto de mando
+            a través del servidor (útil para probar sin nodos LoRa).
+          </p>
+          <label>Tu nombre en la red
+            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required />
+          </label>
+          <label>Servidor
+            <input value={url} onChange={(e) => setUrl(e.target.value)} inputMode="url" autoCapitalize="off" required />
+          </label>
+          <button type="submit" className="primary" disabled={busy}>Conectar por Wi‑Fi</button>
+        </form>
+      )}
     </div>
   );
 }

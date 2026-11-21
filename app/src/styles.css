@@ -93,6 +93,10 @@ main { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: 
 .card p { margin: 0; }
 .card.warn { border-color: var(--mod); background: var(--mod-bg); }
 
+.lan-form { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
+.lan-form p { margin: 0; }
+.lan-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+
 .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .list li { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
 .list li.critico { border-color: var(--crit); background: var(--crit-bg); }
