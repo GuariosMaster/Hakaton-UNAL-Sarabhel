@@ -16,17 +16,10 @@ Servidor del puesto de mando que recibe los mensajes de la red **FSK 915 MHz** (
 
 | Servicio | Archivo | Qué hace |
 |---|---|---|
-<<<<<<< HEAD
 | **Broker** | Mosquitto | Bus publicación/suscripción con persistencia (QoS 1). |
 | **Listener** | `sarabhel/listener.py` | Lee el gateway ESP32-S3 por USB serial (pyserial, 115.200 baudios), traduce cada trama JSON a eventos y los publica en Mosquitto. Escribe en el gateway los mensajes de `red/tx/msg` para transmitirlos por radio. |
 | **Mensajería** | `sarabhel/messaging.py` | Clasifica (crítico / moderado / informativo), adjunta la última posición del remitente, guarda en SQLite y emite alertas. |
 | **Localización** | `sarabhel/location.py` | Guarda posiciones GPS e historial, nombre y energía de cada nodo (batería V, panel V, % carga), detecta entrada a zonas de riesgo y alerta de batería baja. |
-=======
-| **Broker** | `mosquitto/mosquitto.conf` | Mosquitto: bus publicación/suscripción con persistencia (QoS 1). |
-| **Listener** | `sarabhel/listener.py` | Lee el gateway (serie, TCP o simulado), traduce paquetes a JSON y los publica. Transmite por radio lo que llega a `lora/gateway/tx`. |
-| **Mensajería** | `sarabhel/messaging.py` | Clasifica (crítico / moderado / informativo), adjunta la última posición del remitente, guarda y emite alertas. |
-| **Localización** | `sarabhel/location.py` | Guarda posiciones GPS e historial, nombre y batería de cada nodo, detecta entrada a zonas de riesgo. |
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 | **Dashboard** | `sarabhel/dashboard.py` + `static/` | API REST, eventos en vivo (SSE) y mapa Leaflet incluido localmente (no usa CDN). |
 
 ### ¿Por qué no Kubernetes?
@@ -36,7 +29,6 @@ Un clúster de Kubernetes (aunque sea k3s) consume entre 0,5 y 1 GB de RAM y CPU
 
 | Tema | Publica | Contenido |
 |---|---|---|
-<<<<<<< HEAD
 | `red/albergue/{nodo_id}/msg` | listener | Mensaje de texto recibido por RF FSK |
 | `red/albergue/{nodo_id}/tel` | listener | Telemetría energética (batería, panel, carga) |
 | `red/albergue/{nodo_id}/pos` | listener | Posición GPS del nodo |
@@ -47,15 +39,6 @@ Un clúster de Kubernetes (aunque sea k3s) consume entre 0,5 y 1 GB de RAM y CPU
 `{nodo_id}` es `nodo-N` para los nodos de radio (dirección RHMesh N) o `!xxxxxxxx` para los teléfonos
 conectados por Wi‑Fi al puesto de mando (endpoints `/api/device/*`).
 | `events/msg` · `events/position` · `events/node` · `events/alert` | servicios | Datos ya procesados y guardados |
-=======
-| `lora/gateway/rx/text` · `/position` · `/nodeinfo` · `/telemetry` | listener | Paquete de radio en JSON |
-| `lora/gateway/tx` | mensajería | `{text, to}` para transmitir |
-| `lora/nodes` | localización | Estado de un nodo ya guardado |
-| `app/send` | dashboard | Mensaje escrito en el puesto de mando |
-| `events/msg` · `events/position` · `events/alert` | servicios | Datos ya procesados y guardados |
-
-Los mensajes entrantes se deduplican por `packet_id` de Meshtastic, así que un reintento de la malla no genera dos registros. El dashboard muestra una banda **DEMO** cuando el listener corre en modo simulado; en modo `serial`/`tcp` los nodos y telemetría son los que reporta el gateway.
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 
 ## Puesta en marcha
 
@@ -63,42 +46,17 @@ Los mensajes entrantes se deduplican por `packet_id` de Meshtastic, así que un 
 
 ```bash
 cp .env.example .env
-<<<<<<< HEAD
 # Demo sin hardware RF (modo simulado):
 docker compose up -d --build
 # Gateway ESP32-S3 conectado por USB nativo (aparece como /dev/ttyACM0):
 MESH_USB_DEVICE=/dev/ttyACM0 docker compose -f docker-compose.yml -f docker-compose.serial.yml up -d --build
 # Variables relevantes: MESH_CONNECTION=usb, MESH_USB_DEVICE, MESH_USB_BAUD=115200
-=======
-# Demo sin radio (la interfaz marca los datos como DEMO):
-docker compose up -d --build
-# Gateway RAK conectado por USB (en este puesto: /dev/ttyACM0):
-docker compose -f docker-compose.yml -f docker-compose.serial.yml up -d --build
-# Si el puerto aparece con otro nombre o el grupo cambia:
-MESH_SERIAL_DEVICE=/dev/ttyACM0 MESH_SERIAL_GID=$(stat -c %g /dev/ttyACM0) \
-  docker compose -f docker-compose.yml -f docker-compose.serial.yml up -d --build
-# Gateway por Wi-Fi:
-MESH_CONNECTION=tcp MESH_TCP_HOST=192.168.4.1 docker compose up -d --build
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 ```
-
-El puerto USB solo lo abre el listener. Si `docker compose logs listener` muestra error de
-permisos, revisar `MESH_SERIAL_GID` con `stat -c %g /dev/ttyACM0`. Mosquitto no publica
-ningún puerto al host: solo existe dentro de la red de Compose.
 
 Abrir `http://<ip-del-servidor>:8080` desde cualquier equipo de la red local.
 Ver los registros: `docker compose logs -f listener mensajeria`.
 
-<<<<<<< HEAD
 ### B) Windows sin Docker (demo en el portátil)
-=======
-### B) Windows sin Docker (desarrollo / demo en el portátil)
-
-Docker Desktop en Windows **no puede pasar puertos COM** al contenedor, así que en
-Windows se ejecuta todo con Python. Se necesita un broker MQTT: instalar
-[Mosquitto para Windows](https://mosquitto.org/download/), o para pruebas instalar
-`amqtt` (pure Python) junto con los requisitos del paso siguiente.
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 
 ```powershell
 .\iniciar.ps1                     # nodos FSK simulados
@@ -131,26 +89,14 @@ Sin `MESH_CONNECTION` el listener arranca en **modo simulado**: nodos ficticios 
 
 ### Pruebas
 
-<<<<<<< HEAD
 ```bash
 .venv/bin/python -m pytest -q tests
 ```
 
 ## Configuración de los nodos RFM69HCW
-=======
-```powershell
-.venv\Scripts\python -m unittest discover -s tests -v
-```
-
-Desde la raíz del repositorio: `python3 -m unittest discover -s server/tests -v`.
-Las pruebas usan solo la biblioteca estándar: no requieren pytest ni un broker MQTT.
-
-## Configuración del nodo Meshtastic
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 
 El firmware está en [`firmware/`](../firmware/) y los parámetros en [`firmware/include/config.h`](../firmware/include/config.h). Cada nodo (ESP32 + RFM69HCW) y el gateway (ESP32-S3 + RFM69HCW) deben compartir los mismos parámetros RF:
 
-<<<<<<< HEAD
 | Parámetro | Valor | Justificación |
 |---|---|---|
 | Frecuencia portadora | 915,0 MHz | Banda ISM libre en Colombia |
@@ -161,6 +107,56 @@ El firmware está en [`firmware/`](../firmware/) y los parámetros en [`firmware
 | Sync Word | 0x2D, 0xD4 | Filtrado de ruido en 915 MHz |
 | Trama por aire | `TIPO|BAT_V|PANEL_V|CARGA_PCT|MENSAJE` (TIPO: MSG, TEL, POS, INFO) | Ej: `MSG|12.4|18.1|82|Albergue Coliseo: 280 personas` (texto máx. 36 bytes) |
 | USB Serial (gateway → PC) | JSON a 115.200 baudios | Ej: `{"nodo":2,"tipo":"MSG","bat":12.4,"panel":18.1,"carga":82,"msg":"...","rssi":-72}` |
+
+## Límites de comunicación, capacidades y tiempos (según datasheets RFM69HCW y ESP32-S3)
+
+### Arquitectura de capas: ¿Por qué 120 bytes en el servidor y 54 bytes por aire?
+
+No hay inconsistencia entre los 120 bytes que recibe el servidor y los límites de la radio; se trata de **segmentación en capa de transporte**:
+
+- **Capa de aplicación (App / Servidor / Dashboard):** Acepta un mensaje lógico de hasta **120 bytes** UTF-8 (`USB_MAX_TEXT_BYTES`). Es la unidad de lectura y escritura del usuario.
+- **Capa física y de enlace (RFM69HCW + RHMesh):** El transceptor tiene una FIFO de 66 bytes. Con cifrado hardware AES-128 (bloques de 16 bytes, máx. 64 bytes de mensaje) y cabeceras de red RHMesh (driver + router + mesh = 10 bytes), la MTU física de radio es de **54 bytes** (`MAX_PAQUETE`).
+- **Capa de adaptación (Firmware):** Segmenta automáticamente mensajes mayores a 36 bytes en fragmentos `MSGP` y los reensambla en destino.
+
+### Desglose exacto del payload: ¿Por qué se necesitan hasta 5 tramas y no 3?
+
+Un error de cálculo común es dividir $120 \div 50 \approx 2,4$ y asumir que con 3 tramas basta. Esto olvida que el texto **no viaja solo**: cada trama de radio transporta telemetría del nodo y control de fragmentación.
+
+| Tipo de trama | Tamaño total paquete RF | Overhead de telemetría y cabecera | Texto útil por trama | Tramas necesarias para el texto |
+|---|---|---|---|---|
+| **Corta (`MSG`)** | 54 bytes | **18 bytes:** `MSG\|12.4\|18.1\|100\|` | **Hasta 36 bytes** | **1 trama** (mensaje directo sin fragmentar) |
+| **Fragmentada (`MSGP`)** | 54 bytes | **26 bytes:** `MSGP\|12.4\|18.1\|100\|` (19 B) + `id.k.n:` (7 B) | **28 bytes** (`BYTES_FRAGMENTO`) | **2 a 5 tramas** según el largo real |
+
+**Cálculo real de fragmentos:**
+- Con 1 fragmento: hasta 28 bytes de texto.
+- Con 2 fragmentos: hasta 56 bytes de texto (ej. un reporte de 50 bytes usa solo 2 tramas).
+- Con 3 fragmentos: hasta 84 bytes de texto.
+- Con 4 fragmentos: hasta 112 bytes de texto.
+- Con **5 fragmentos**: hasta **140 bytes de capacidad** ($5 \times 28$), lo que cubre con total holgura el límite de **120 bytes** (`MAX_TEXTO_LARGO`), incluso con caracteres UTF-8 multibyte (tildes, eñes).
+
+> **Dinámico y sin relleno:** Si un usuario envía un mensaje de 50 bytes, el firmware calcula automáticamente $n=2$ partes. Se envían únicamente 2 tramas en el aire; **no se hace relleno (*padding*) artificial** ni se envían tramas vacías.
+
+### Tiempo en el aire (Time on Air a 9,6 kbps FSK)
+
+| Componente de la trama | Tamaño / Duración |
+|---|---|
+| Preámbulo + Sync words (0x2D, 0xD4) | 6 bytes (48 bits) ≈ **5,0 ms** |
+| Paquete RF completo (datos + cabeceras + CRC) | Hasta 58-60 bytes ≈ **48,3 ms** |
+| Cifrado AES-128 por hardware (4 bloques) | **~28 µs** (despreciable frente al aire) |
+| Arranque del transmisor (PLL lock + PA ramp) | **< 1 ms** |
+| **Tiempo total en el aire por trama (ToA)** | **~54 a 57 ms** |
+| **Ciclo completo con confirmación (ACK de RHMesh)** | **~100 a 150 ms por salto (hop)** |
+
+### ¿Cada cuánto se puede enviar un mensaje por el chat de la app?
+
+Al ser una red en malla half-duplex sobre un canal compartido en 915 MHz:
+
+- **Mensaje corto (≤ 36 bytes / 1 trama):** cada **1 a 2 segundos** como máximo sostenible por nodo.
+- **Mensaje largo (37 a 120 bytes / 2 a 5 tramas):** cada **4 a 6 segundos**, para dar tiempo a que cada fragmento sea confirmado por la malla y evitar saturar el canal.
+- **Telemetría de energía (`TEL`):** cada **5 minutos** (`INTERVALO_TEL_MS`). Batería y panel tienen inercia lenta; reportar más rápido desperdiciaría energía y canal.
+- **Posición GPS (`POS`):** cada **30 a 60 segundos** en brigadas móviles; cada 30 minutos en albergues fijos.
+
+> **Regla de oro de la malla:** Si hay 5 a 10 nodos operando en el territorio, el intervalo de chat entre mensajes de un mismo nodo debe mantenerse en **al menos 5 segundos** para evitar colisiones y pérdida de fragmentos.
 
 ## Usuarios y sesiones
 
@@ -205,17 +201,6 @@ sigue con la simulación normal. Guion en [DEMO.md](../DEMO.md).
 ## Descarga de la app sin internet
 
 El dashboard sirve la página de descarga en `/descargar` y el APK en `/descargar/RedEmergencia.apk`. Antes del evento, copiar el APK a `server/descargas/` (ver `descargas/LEEME.md`). Los teléfonos conectados al Wi‑Fi del puesto de mando instalan la app abriendo `http://192.168.1.10:8080/descargar`. La página funciona aunque el broker MQTT esté apagado.
-=======
-- `module_config.mqtt.enabled: false` en cada nodo (ver `../config/meshtastic.example.yaml`: así el gateway
-  entrega los paquetes al Listener por USB y no los publica en la nube). Nunca versionar `config.yaml`,
-  porque puede contener claves.
-- `config.position.gpsMode: ENABLED` en los nodos con GPS; en los demás, compartir el GPS del celular desde la app.
-  Un nodo sin posición aparece en la lista como «sin GPS», sin coordenadas inventadas.
-- Mensajes rápidos (`canned_messages`) de emergencia, por ejemplo:
-  `SOS|Herido|Atrapado|Necesito agua|Necesito medicina|Estoy bien|Evacuando`.
-- Mantener `bluetooth.mode: RANDOM_PIN` (la referencia ya no usa el PIN fijo `123456`) y regenerar
-  las claves si un `config.yaml` llegó a compartirse. La región de Colombia es `ANZ`.
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 
 ## Mapa offline
 
@@ -232,13 +217,7 @@ Sin mosaicos el mapa sigue funcionando (nodos, recorridos y zonas se ven sobre f
 
 ## Seguridad
 
-<<<<<<< HEAD
 - Mosquitto solo escucha en `127.0.0.1`; el único puerto expuesto a la LAN es el dashboard (8080).
 - El dashboard no tiene autenticación: está pensado para la red cerrada del puesto de mando. Si la red Wi‑Fi del puesto es abierta, agregar autenticación o un proxy con contraseña.
-=======
-- Mosquitto no expone puertos al host; el único puerto publicado es el dashboard (8080).
-- El dashboard no tiene autenticación: está pensado para la red cerrada del puesto de mando.
-  Si la red Wi-Fi del puesto es abierta, agregar autenticación o un proxy con contraseña.
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 - Los contenedores corren con un usuario sin privilegios.
 - El cifrado AES-128 del RFM69HCW protege las tramas por aire; la clave debe ser idéntica en todos los nodos y el gateway.

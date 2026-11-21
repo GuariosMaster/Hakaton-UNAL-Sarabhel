@@ -57,12 +57,19 @@ WEB_DIR = _env("WEB_DIR", str(BASE_DIR.parent / "web"))
 DOWNLOADS_DIR = _env("DOWNLOADS_DIR", str(BASE_DIR / "descargas"))
 APK_NAME = "RedEmergencia.apk"
 
-# Texto máximo por mensaje (bytes UTF-8). Un paquete por radio lleva 36 bytes de texto; los
-# mensajes más largos el firmware los parte en hasta 5 tramas MSGP (ver firmware/include/config.h).
-MAX_TEXT_BYTES = int(_env("MAX_TEXT_BYTES", "120"))
+# Texto máximo por mensaje que el servidor acepta por USB/Wi-Fi (bytes UTF-8).
+# El firmware del gateway puede fragmentar mensajes largos en hasta 5 tramas MSGP
+# para enviarlos por aire (ver firmware/include/config.h).
+USB_MAX_TEXT_BYTES = int(_env("USB_MAX_TEXT_BYTES", "120"))
+
+# Payload máximo por aire en una sola trama RF (RFM69HCW + RadioHead RHMesh):
+# 66 bytes FIFO menos cabeceras de malla y relleno AES-128.
+RF_MAX_PAYLOAD_BYTES = 48
+
+# Compatibilidad: código antiguo que aún cite MAX_TEXT_BYTES.
+MAX_TEXT_BYTES = USB_MAX_TEXT_BYTES
 
 # --- Temas MQTT -------------------------------------------------------------
-<<<<<<< HEAD
 # Red -> servidor: red/albergue/{nodo_id}/{msg|tel|pos|info}
 # Los publica el listener (nodos por radio) y el dashboard (teléfonos por Wi-Fi).
 RX_TEXT = "red/albergue/+/msg"
@@ -96,38 +103,14 @@ def node_address(node: str | None) -> int | None:
         n = int(node[5:])
         return n if 1 <= n <= 254 else None
     return None
-=======
-# Contrato canónico acordado para el tráfico de radio.
-# Radio -> servidor (publica el listener)
-RX_TEXT = "lora/gateway/rx/text"
-RX_POSITION = "lora/gateway/rx/position"
-RX_NODEINFO = "lora/gateway/rx/nodeinfo"
-RX_TELEMETRY = "lora/gateway/rx/telemetry"
-# Servidor -> radio (escucha el listener)
-TX_TEXT = "lora/gateway/tx"
->>>>>>> 660dcf222dfc98eb9534afaed0f07a25bcd489f9
 # Petición de envío desde el dashboard (la procesa el servicio de mensajería)
 APP_SEND = "app/send"
-# Eventos ya procesados y guardados (los consume el dashboard).
-# lora/nodes es el tema canónico del estado de nodos; los demás son internos.
+# Eventos ya procesados y guardados (los consume el dashboard)
 EV_MESSAGE = "events/msg"
 EV_POSITION = "events/position"
-EV_NODE = "lora/nodes"
+EV_NODE = "events/node"
 EV_ALERT = "events/alert"
 EV_ALERT_UPDATE = "events/alert_update"
-
-# El tipo de evento SSE no debe depender del prefijo del tema MQTT.
-SSE_KINDS = {
-    EV_MESSAGE: "msg",
-    EV_POSITION: "position",
-    EV_NODE: "node",
-    EV_ALERT: "alert",
-}
-
-
-def is_demo_mode(mode: str | None = None) -> bool:
-    """True cuando los datos provienen del simulador, no del gateway real."""
-    return (mode if mode is not None else MESH_CONNECTION) == "sim"
 
 
 def setup_logging(service: str) -> logging.Logger:
