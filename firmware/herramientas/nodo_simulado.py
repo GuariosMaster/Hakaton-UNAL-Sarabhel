@@ -161,10 +161,19 @@ def handler_factory(nodo: Nodo):
                 data = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
             except ValueError:
                 return self._json(400, {"ok": False, "error": "JSON inválido"})
-            if u.path == "/api/mensaje":
+            if u.path in ("/api/mensaje", "/api/login"):
+                tipo = str(data.get("tipo") or data.get("tipo_mensaje") or ("login" if u.path == "/api/login" else "chat")).lower()
+                if tipo == "login":
+                    usuario = str(data.get("usuario") or "").strip()
+                    pin = str(data.get("pin") or "").strip()
+                    if not usuario or not pin:
+                        return self._json(400, {"ok": False, "error": "Usuario y PIN requeridos"})
+                    print(f"[nodo {nodo.nodo}] Login autorizado para: {usuario}")
+                    return self._json(200, {"ok": True, "tipo": "login", "autorizado": True, "usuario": usuario})
+
+                # tipo == "chat"
                 msg = str(data.get("mensaje") or data.get("cuerpo") or data.get("msg") or "").strip()
                 dest = int(data.get("destino") or data.get("dest") or 1)
-                tipo = str(data.get("tipo") or data.get("tipo_mensaje") or "texto")
                 lat = data.get("latitud") if data.get("latitud") is not None else data.get("lat")
                 lon = data.get("longitud") if data.get("longitud") is not None else data.get("lon")
                 if not msg or len(msg.encode("utf-8")) > MAX_TEXTO:
@@ -174,8 +183,8 @@ def handler_factory(nodo: Nodo):
                 time.sleep(0.4)  # tiempo en el aire + confirmación RHMesh
                 nodo.radio("MSG", msg)
                 seq = nodo.guardar(nodo.nodo, dest, msg, True)
-                print(f"[nodo {nodo.nodo}] TX ({tipo}) por radio: {msg}")
-                return self._json(200, {"ok": True, "seq": seq})
+                print(f"[nodo {nodo.nodo}] TX (chat) por radio: {msg}")
+                return self._json(200, {"ok": True, "tipo": "chat", "seq": seq})
             if u.path == "/api/posicion":
                 lat = data.get("latitud") if data.get("latitud") is not None else data.get("lat")
                 lon = data.get("longitud") if data.get("longitud") is not None else data.get("lon")

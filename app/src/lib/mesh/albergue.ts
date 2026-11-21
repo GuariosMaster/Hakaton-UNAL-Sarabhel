@@ -90,9 +90,8 @@ export class AlbergueRadio implements RadioLink {
   async sendText(text: string, to: number = BROADCAST, fix?: Fix): Promise<number> {
     // Desde un nodo, "todos" significa el puesto de mando: él lo reparte al resto de la red.
     const dest = to === BROADCAST || to > 254 ? COMMAND_NUM : to;
-    const isSos = text.toUpperCase().startsWith("SOS");
     const payload = {
-      tipo: isSos ? "sos" : "texto",
+      tipo: "chat",
       mensaje: text,
       destino: dest,
       latitud: fix?.lat ?? null,
@@ -106,6 +105,16 @@ export class AlbergueRadio implements RadioLink {
     const r = await this.req<{ ok: boolean; seq: number }>("/api/mensaje", payload);
     setTimeout(() => this.ev.ack(r.seq, true), 0);
     return r.seq;
+  }
+
+  async login(usuario: string, pin: string): Promise<{ ok: boolean; autorizado?: boolean; error?: string }> {
+    const payload = {
+      tipo: "login",
+      usuario,
+      pin,
+      destino: COMMAND_NUM,
+    };
+    return this.req<{ ok: boolean; autorizado?: boolean; error?: string }>("/api/mensaje", payload);
   }
 
   async sendPosition(lat: number, lon: number): Promise<void> {

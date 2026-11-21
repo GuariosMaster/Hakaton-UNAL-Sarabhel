@@ -106,7 +106,9 @@ static void apiMensajes() {
   responderJson(200, doc);
 }
 
-// POST /api/mensaje  {"tipo":"texto","mensaje":"SOS Atrapado","destino":1,"latitud":5.06,"longitud":-75.50}
+// POST /api/mensaje
+//   Tipo chat:  {"tipo":"chat","mensaje":"Reporte...","destino":1,"latitud":5.06,"longitud":-75.50}
+//   Tipo login: {"tipo":"login","usuario":"socorrista1","pin":"1234","destino":1}
 static void apiEnviar() {
   JsonDocument in, out;
   if (deserializeJson(in, server.arg("plain"))) {
@@ -114,6 +116,26 @@ static void apiEnviar() {
     out["error"] = "JSON inválido";
     return responderJson(400, out);
   }
+
+  const char* tipo = in["tipo"] | in["tipo_mensaje"] | "chat";
+
+  // Petición tipo login: acceso al servicio de mensajería
+  if (strcmp(tipo, "login") == 0) {
+    const char* usuario = in["usuario"] | "";
+    const char* pin = in["pin"] | "";
+    if (!usuario[0] || !pin[0]) {
+      out["ok"] = false;
+      out["error"] = "Usuario y PIN requeridos";
+      return responderJson(400, out);
+    }
+    out["ok"] = true;
+    out["tipo"] = "login";
+    out["autorizado"] = true;
+    out["usuario"] = usuario;
+    return responderJson(200, out);
+  }
+
+  // Petición tipo chat: mensaje convencional
   const char* msg = in["mensaje"] | in["cuerpo"] | in["msg"] | "";
   int dest = in["destino"] | in["dest"] | (int)GATEWAY_ADDRESS;
   if (!msg[0] || bytesUtf8(msg) > MAX_TEXTO_LARGO) {
@@ -146,6 +168,7 @@ static void apiEnviar() {
   bool ok = r == RH_ROUTER_ERROR_NONE;
   if (ok) guardarMensaje(NODE_ADDRESS, dest, msg, true);
   out["ok"] = ok;
+  out["tipo"] = "chat";
   out["seq"] = seq;
   if (!ok) out["error"] = r == RH_ROUTER_ERROR_NO_ROUTE ? "Sin ruta al puesto de mando" : "No se recibió confirmación";
   responderJson(ok ? 200 : 502, out);
