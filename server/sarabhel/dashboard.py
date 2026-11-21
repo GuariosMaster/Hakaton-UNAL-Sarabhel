@@ -133,7 +133,7 @@ class UserUpdate(BaseModel):
 
 class RegisterRequest(BaseModel):
     usuario: str = Field(min_length=3, max_length=20)
-    nombre: str = Field(min_length=1, max_length=40)
+    nombre: str | None = Field(default=None, max_length=40)
     pin: str = Field(pattern=r"^\d{4}$")
     equipo: str | None = Field(default=None, max_length=60)
 
@@ -146,7 +146,7 @@ def login(req: LoginRequest):
 @app.post("/api/auth/registro", status_code=201)
 def register(req: RegisterRequest):
     """Crear cuenta propia (rol socorrista) y entrar de una vez."""
-    return get_auth().register(req.usuario, req.nombre, req.pin, req.equipo)
+    return get_auth().register(req.usuario, req.nombre or req.usuario, req.pin, req.equipo)
 
 
 @app.get("/api/auth/estado")

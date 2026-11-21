@@ -116,6 +116,18 @@ services:
       # Visible en la red local del puesto de mando (celulares / otros PC).
       - "8080:8080"
 
+  albergue-simulado:
+    <<: *app
+    command: ["python", "/firmware/herramientas/nodo_simulado.py", "--nodo", "2", "--nombre", "Albergue Coliseo", "--puerto", "8765", "--mqtt", "mosquitto"]
+    volumes:
+      - ../firmware:/firmware:ro
+    ports:
+      # Portal Wi-Fi cautivo / API HTTP simulada del nodo para la app móvil en modo Campo
+      - "8765:8765"
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+
 volumes:
   datos:
   mosquitto-data:

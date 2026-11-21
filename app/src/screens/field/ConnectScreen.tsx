@@ -23,12 +23,11 @@ type Form = "albergue" | "red-local" | null;
 /** Conexión del modo Campo: nodo de albergue (Wi-Fi del ESP32), puesto de mando o demo. */
 export function ConnectCard({ compact = false }: { compact?: boolean }) {
   const {
-    status, detail, kind, connect, disconnect, nodeUrl, setNodeUrl, serverUrl, deviceName, setLanSettings,
+    status, detail, kind, connect, disconnect, setNodeUrl, serverUrl, deviceName, setLanSettings,
   } = useField();
   const busy = status === "conectando" || status === "configurando";
   const loggedIn = useAuth((s) => !!s.session?.token);
   const [form, setForm] = useState<Form>(null);
-  const [node, setNode] = useState(nodeUrl);
   const url = useAuth((st) => st.session?.serverUrl) ?? serverUrl;
   const name = useAuth((st) => st.session?.nombre) ?? deviceName;
 
@@ -37,7 +36,7 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
       <div className="card">
         <p><b>{STATUS_LABEL[status]}</b> · {KIND_LABEL[kind]}</p>
         {kind === "red-local" && <p className="muted">Como “{deviceName}” en {serverUrl}</p>}
-        {kind === "albergue" && <p className="muted">Nodo en {nodeUrl}</p>}
+        {kind === "albergue" && <p className="muted">Nodo ESP32 (192.168.4.1)</p>}
         <button type="button" onClick={() => void disconnect()}>Desconectar</button>
       </div>
     );
@@ -45,17 +44,19 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
 
   return (
     <div className={`card ${compact ? "warn" : ""}`}>
-      <p><b>{busy ? (detail ?? STATUS_LABEL[status]) : "Conéctate a la red de emergencia"}</b></p>
+      <p><b>{busy ? (detail ?? STATUS_LABEL[status]) : "Conexión con el nodo ESP32"}</b></p>
       {!compact && (
         <p className="muted">
-          Conecta el teléfono a la red Wi‑Fi <b>“Emergencia …”</b> del albergue más cercano. No necesita internet
-          ni señal celular: el nodo envía tu mensaje por radio al puesto de mando.
+          Conéctate al Wi‑Fi <b>“Emergencia …”</b> del nodo ESP32 (192.168.4.1). No requiere internet ni datos móviles.
         </p>
       )}
       {detail && status === "desconectado" && detail !== "usuario" && <p className="error">{detail}</p>}
       <button type="button" className="primary" disabled={busy}
-              onClick={() => (form === "albergue" ? void connect("albergue") : setForm("albergue"))}>
-        📡 Wi‑Fi del albergue
+              onClick={() => {
+                setNodeUrl("http://192.168.4.1");
+                void connect("albergue");
+              }}>
+        📡 Conectar al nodo ESP32 (Wi‑Fi)
       </button>
       <div className="row">
         {loggedIn && (
@@ -66,23 +67,6 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
         <button type="button" disabled={busy} onClick={() => void connect("simulador")}>🧪 Demo</button>
       </div>
 
-      {form === "albergue" && (
-        <form className="lan-form" onSubmit={(e) => {
-          e.preventDefault();
-          setNodeUrl(node.trim() || "http://192.168.4.1");
-          void connect("albergue");
-        }}>
-          <p className="muted">
-            1. Abre Ajustes → Wi‑Fi y conéctate a <b>“Emergencia …”</b>.<br />
-            2. Si Android avisa “sin internet”, elige <b>mantener conexión</b>, o apaga los datos móviles.
-          </p>
-          <label>Dirección del nodo
-            <input value={node} onChange={(e) => setNode(e.target.value)} inputMode="url" autoCapitalize="off" />
-          </label>
-          <button type="submit" className="primary" disabled={busy}>Conectar al nodo</button>
-        </form>
-      )}
-
       {form === "red-local" && (
         <form className="lan-form" onSubmit={(e) => {
           e.preventDefault();
@@ -90,10 +74,8 @@ export function ConnectCard({ compact = false }: { compact?: boolean }) {
           void connect("red-local");
         }}>
           <p className="muted">
-            Si estás en el puesto de mando, conéctate a su Wi‑Fi. Tus mensajes llegan al servidor, a los demás
-            teléfonos y a los albergues por radio. También sirve para probar la app entre teléfonos sin nodos.
+            Si estás en el puesto de mando, conéctate a su Wi‑Fi.
           </p>
-          <p className="muted">Entras como <b>{useAuth.getState().session?.nombre ?? name}</b> en el servidor de tu sesión.</p>
           <button type="submit" className="primary" disabled={busy}>Conectar al puesto de mando</button>
         </form>
       )}

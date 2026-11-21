@@ -113,9 +113,7 @@ function RegisterForm({ url, estado, onDone }: {
   onDone: () => void;
 }) {
   const register = useAuth((s) => s.register);
-  const [nombre, setNombre] = useState("");
   const [usuario, setUsuario] = useState("");
-  const [equipo, setEquipo] = useState("");
   const [pin, setPin] = useState("");
   const [pin2, setPin2] = useState("");
   const [error, setError] = useState<string>();
@@ -123,14 +121,6 @@ function RegisterForm({ url, estado, onDone }: {
 
   const usuarioOk = /^[a-z0-9._-]{3,20}$/.test(usuario.trim().toLowerCase());
   const pinsOk = /^\d{4}$/.test(pin) && pin === pin2;
-
-  // Sugerir un usuario a partir del nombre: "Ana Pérez" -> "ana.perez"
-  function onNombre(v: string) {
-    const sugerido = (u: string) => u.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase()
-      .trim().replace(/\s+/g, ".").replace(/[^a-z0-9._-]/g, "").slice(0, 20);
-    if (!usuario || usuario === sugerido(nombre)) setUsuario(sugerido(v));
-    setNombre(v);
-  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -141,7 +131,8 @@ function RegisterForm({ url, estado, onDone }: {
     setBusy(true);
     setError(undefined);
     try {
-      await register({ usuario, nombre, pin, equipo }, url);
+      const u = usuario.trim().toLowerCase();
+      await register({ usuario: u, nombre: u, pin }, url);
     } catch (ex) {
       setError(ex instanceof Error ? ex.message : String(ex));
     } finally {
@@ -160,13 +151,9 @@ function RegisterForm({ url, estado, onDone }: {
 
   return (
     <form className="register" onSubmit={submit}>
-      <label className="field">Nombre
-        <input value={nombre} onChange={(e) => onNombre(e.target.value)} autoComplete="name" required maxLength={40}
-               placeholder="ej. Ana Pérez" />
-      </label>
       <label className="field">Usuario
         <input value={usuario} onChange={(e) => setUsuario(e.target.value.toLowerCase())} autoCapitalize="off"
-               autoComplete="username" required maxLength={20} placeholder="ej. ana.perez" />
+               autoComplete="username" required maxLength={20} placeholder="ej. socorrista1" />
         {usuario && !usuarioOk && <small className="error">3 a 20 caracteres: letras, números, punto o guion</small>}
       </label>
       <div className="row">
@@ -179,16 +166,12 @@ function RegisterForm({ url, estado, onDone }: {
                  inputMode="numeric" autoComplete="new-password" required />
         </label>
       </div>
-      <label className="field">Equipo de rescate (opcional)
-        <input value={equipo} onChange={(e) => setEquipo(e.target.value)} maxLength={60} placeholder="ej. Bomberos 2" />
-      </label>
       {error && <p className="error">{error}</p>}
-      <button type="submit" className="primary" disabled={busy || !nombre.trim() || !usuarioOk || !pinsOk}>
+      <button type="submit" className="primary" disabled={busy || !usuarioOk || !pinsOk}>
         {busy ? "Creando…" : "Crear cuenta y entrar"}
       </button>
       <p className="muted small-print">
-        Las cuentas nuevas son de <b>socorrista</b>. Si eres del puesto de mando, pide al administrador que cambie tu rol.
-        Necesitas estar conectado al Wi‑Fi del puesto de mando la primera vez.
+        Las cuentas nuevas son de <b>socorrista</b>.
       </p>
     </form>
   );

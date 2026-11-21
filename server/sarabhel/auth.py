@@ -223,8 +223,9 @@ class Auth:
         usuario = (usuario or "").strip().lower()
         self._validate(usuario=usuario, pin=pin)
         self._check_strong(pin)
-        if not (nombre or "").strip():
-            raise AuthError(400, "Escribe tu nombre")
+        nombre = (nombre or usuario).strip()
+        if not nombre:
+            raise AuthError(400, "Escribe tu usuario")
         conn = self._conn()
         try:
             with conn:
